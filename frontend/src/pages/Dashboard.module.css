@@ -181,8 +181,8 @@
 }
 
 .actionBtn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--glass-hover);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 16px 8px;
   display: flex;
@@ -198,7 +198,7 @@
 }
 
 .actionBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--glass-border);
   transform: translateY(-2px);
 }
 
@@ -221,6 +221,22 @@
 .iconPurple {
   background: rgba(168, 85, 247, 0.15);
   color: #a855f7;
+}
+
+.integrationToast {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid var(--success-color);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 15px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* KARTA KREDYTOWA - WIZUALIZACJA CSS (PREMIUM REALISTIC) */

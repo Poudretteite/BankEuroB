@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axiosClient from '../api/axiosClient';
 import { useAuthStore } from '../store/useAuthStore';
@@ -15,7 +15,8 @@ import {
   Wifi,
   TrendingUp,
   TrendingDown,
-  Award
+  Award,
+  CreditCard as CreditCardIcon
 } from 'lucide-react';
 import {
   AreaChart,
@@ -66,6 +67,24 @@ const generateMockChartData = (currentBalance: number) => {
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
+  const [extCardStatus, setExtCardStatus] = useState<string | null>(null);
+  
+  const handleIssueCardClick = async () => {
+    try {
+      setExtCardStatus('Łączenie z Card Provider...');
+      const response = await axiosClient.post('/cards/integrate');
+      if (response.data?.response) {
+        setExtCardStatus(`Sukces! Wydano kartę o tokenie: ${response.data.response}`);
+      } else if (response.data?.error) {
+        setExtCardStatus(`System Kart Niedostępny: ${response.data.error}`);
+      }
+    } catch (err: any) {
+      setExtCardStatus(`Błąd połączenia do serwera kart: ${err.response?.data?.error || err.message}`);
+    }
+    
+    // Znika powiadomienie po 10 sek
+    setTimeout(() => setExtCardStatus(null), 10000);
+  };
 
   const { data: accounts, isLoading: accountsLoading } = useQuery({
     queryKey: ['accounts'],
@@ -168,17 +187,24 @@ export const DashboardPage: React.FC = () => {
         {/* PRAWA KOLUMNA */}
         <div className={styles.sideColumn}>
 
-          {/* Szybkie Akcje */}
+          {/* Szybkie Akcje z Integracją Modułu Kart */}
           <div className={`glass-panel ${styles.quickActionsCard}`}>
             <h3 className={styles.cardTitle}>Szybki dostęp</h3>
+            
+            {extCardStatus && (
+              <div className={styles.integrationToast}>
+                {extCardStatus}
+              </div>
+            )}
+            
             <div className={styles.actionsGrid}>
               <Link to="/transfer" className={styles.actionBtn}>
                 <div className={styles.actionIcon}><Send size={20} /></div>
                 <span>Przelew</span>
               </Link>
-              <button className={styles.actionBtn}>
-                <div className={`${styles.actionIcon} ${styles.iconGold}`}><ShieldCheck size={20} /></div>
-                <span>Ubezpieczenie</span>
+              <button className={styles.actionBtn} onClick={handleIssueCardClick}>
+                <div className={`${styles.actionIcon} ${styles.iconGold}`}><CreditCardIcon size={20} /></div>
+                <span>Wydaj Kartę (gRPC)</span>
               </button>
               <button className={styles.actionBtn}>
                 <div className={`${styles.actionIcon} ${styles.iconPurple}`}><MoreHorizontal size={20} /></div>
