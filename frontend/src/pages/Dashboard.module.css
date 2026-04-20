@@ -1,0 +1,645 @@
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.welcomeSection {
+  margin-bottom: 8px;
+}
+
+.pageTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.bentoGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.mainColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* WSPÓLNE HEADERY KART */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.cardTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+}
+
+.seeAllLink {
+  font-size: 0.85rem;
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+.seeAllLink:hover {
+  text-decoration: underline;
+}
+
+/* KARTA GŁÓWNA - WALLET */
+.walletCard {
+  background: linear-gradient(135deg, rgba(19, 27, 47, 0.8) 0%, rgba(37, 99, 235, 0.15) 100%);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.walletHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 2;
+}
+
+.walletTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.walletIcon {
+  color: var(--accent-blue);
+}
+
+.walletType {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-blue);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.walletDetailsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  position: relative;
+  z-index: 2;
+}
+
+.walletBalance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.currencySymbol {
+  font-size: 2rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.amount {
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.ibanBlock {
+  text-align: right;
+}
+
+.ibanLabel {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ibanValue {
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  font-family: monospace;
+  color: var(--text-primary);
+}
+
+/* WYKRES ANALITYKI (RECHARTS) */
+.chartCard {
+  padding: 24px;
+}
+
+.chartWrapper {
+  width: 100%;
+  height: 250px;
+  margin-top: 10px;
+}
+
+/* SZYBKIE AKCJE */
+.quickActionsCard {
+  padding: 24px;
+}
+
+.actionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.actionBtn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.actionIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconGold {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--accent-gold);
+}
+
+.iconPurple {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+/* KARTA KREDYTOWA - WIZUALIZACJA CSS (PREMIUM REALISTIC) */
+.creditCardVisual {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  perspective: 1000px;
+  margin-bottom: 4px;
+}
+
+.ccGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  background: var(--accent-gold);
+  filter: blur(50px);
+  opacity: 0.15;
+  z-index: 0;
+}
+
+.ccInner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  /* Dynamic textured background */
+  background: var(--card-cc-bg);
+  border: 1px solid var(--card-cc-border);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2), inset 0 1px 1px var(--card-cc-border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 1;
+  overflow: hidden;
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s ease;
+}
+
+.creditCardVisual:hover .ccInner {
+  transform: translateY(-5px) rotateX(5deg) rotateY(3deg) scale(1.02);
+}
+
+.ccInner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.03) 0px,
+    rgba(255,255,255,0.03) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.ccTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.ccChipWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ccWifi {
+  color: var(--card-cc-text-muted);
+  transform: rotate(90deg);
+  margin-left: 4px;
+}
+
+.ccBankName {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 1.5px;
+  color: var(--card-cc-text);
+  opacity: 0.9;
+  font-style: italic;
+  text-shadow: 0px 1px 2px rgba(0,0,0,0.15);
+}
+
+.ccChip {
+  width: 44px;
+  height: 34px;
+  background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.ccChip::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; width: 100%; height: 1px;
+  background: rgba(0,0,0,0.3);
+}
+.ccChip::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%; width: 1px; height: 100%;
+  background: rgba(0,0,0,0.2);
+}
+
+.ccMiddle {
+  margin-top: 10px;
+}
+
+.ccNumber {
+  display: flex;
+  justify-content: space-between;
+  font-family: monospace;
+  font-size: 1.4rem;
+  letter-spacing: 2px;
+  color: var(--card-cc-text);
+  text-shadow: 0px 1px 2px rgba(0,0,0,0.15);
+}
+
+.ccBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 5px;
+}
+
+.ccNameInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ccCardholderLabel, .ccExpiresLabel {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--card-cc-text-muted);
+}
+
+.ccCardholder {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--card-cc-text);
+  text-shadow: 0px 1px 1px rgba(0,0,0,0.1);
+}
+
+.ccRightInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ccExpires {
+  font-family: monospace;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  color: var(--card-cc-text);
+}
+
+/* Mastercard Mock Logo */
+.mastercardLogo {
+  position: relative;
+  width: 44px;
+  height: 28px;
+  display: flex;
+}
+
+.mcRed, .mcOrange {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+
+.mcRed {
+  background-color: #eb001b;
+  left: 0;
+  z-index: 2;
+  opacity: 0.9;
+}
+
+.mcOrange {
+  background-color: #f79e1b;
+  right: 0;
+  z-index: 1;
+  opacity: 0.9;
+}
+
+/* LISTA TRANSAKCJI MINIMALNA */
+.transactionsCard {
+  padding: 24px;
+}
+
+.transactionsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.transactionItem {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.transactionItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.txIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 14px;
+  flex-shrink: 0;
+}
+
+.txOutgoing {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error-color);
+}
+
+.txIncoming {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.txDetails {
+  flex: 1;
+  min-width: 0;
+  /* dla text-overflow */
+}
+
+.txTitle {
+  font-weight: 500;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txDate {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.txAmount {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.textOut {
+  color: var(--text-primary);
+}
+
+.textIn {
+  color: var(--success-color);
+}
+
+.emptyActivity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+  color: var(--text-secondary);
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.emptyIcon {
+  color: rgba(255, 255, 255, 0.1);
+}
+
+/* WIDGET KURSÓW WALUT */
+.ratesCard {
+  padding: 24px;
+}
+
+.ratesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rateItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ratePairs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.rateFlag {
+  font-size: 1.2rem;
+}
+
+.rateValueBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rateValue {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.rateTrend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.trendUp {
+  color: var(--success-color);
+}
+
+.trendDown {
+  color: var(--error-color);
+}
+
+/* WIDGET PROGERSU VIP */
+.progressCard {
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(251, 191, 36, 0.05) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.awardIcon {
+  color: var(--accent-gold);
+}
+
+.progressPct {
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.progressText {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.progressBarBg {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+  animation: loadProgress 1.5s ease-out forwards;
+}
+
+@keyframes loadProgress {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 80%;
+  }
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .bentoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 500px) {
+  .walletDetailsRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .ibanBlock {
+    text-align: left;
+  }
+}

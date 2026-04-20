@@ -1,0 +1,102 @@
+package com.bankeurob.auth;
+
+import com.bankeurob.account.Account;
+import com.bankeurob.account.AccountRepository;
+import com.bankeurob.account.Customer;
+import com.bankeurob.account.CustomerRepository;
+import com.bankeurob.auth.dto.AuthResponse;
+import com.bankeurob.auth.dto.LoginRequest;
+import com.bankeurob.auth.dto.RegisterRequest;
+import com.bankeurob.security.CustomerUserDetails;
+import com.bankeurob.security.JwtService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final CustomerRepository customerRepository;
+    private final AccountRepository accountRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+
+    @Transactional
+    public AuthResponse register(RegisterRequest request) {
+        if (customerRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email jest już zajęty: " + request.getEmail());
+        }
+
+        Customer customer = new Customer();
+        customer.setEmail(request.getEmail());
+        customer.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        customer.setFirstName(request.getFirstName());
+        customer.setLastName(request.getLastName());
+        customer.setDateOfBirth(request.getDateOfBirth());
+        customer.setPhone(request.getPhone());
+        customer.setAddressStreet(request.getAddressStreet());
+        customer.setAddressCity(request.getAddressCity());
+        customer.setRole("CUSTOMER");
+
+        Customer saved = customerRepository.save(customer);
+
+        // Automatycznie utwórz konto EUR
+        Account account = new Account();
+        account.setCustomer(saved);
+        account.setIban(generateIban());
+        account.setAccountType("STANDARD");
+        account.setCurrency("EUR");
+        account.setBalance(BigDecimal.ZERO);
+        account.setAvailableBalance(BigDecimal.ZERO);
+        accountRepository.save(account);
+
+        CustomerUserDetails userDetails = new CustomerUserDetails(saved);
+        String token = jwtService.generateToken(userDetails);
+
+        return AuthResponse.builder()
+                .token(token)
+                .customerId(saved.getId())
+                .email(saved.getEmail())
+                .firstName(saved.getFirstName())
+                .lastName(saved.getLastName())
+                .role(saved.getRole())
+                .build();
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+
+        Customer customer = customerRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Klient nie znaleziony"));
+
+        CustomerUserDetails userDetails = new CustomerUserDetails(customer);
+        String token = jwtService.generateToken(userDetails);
+
+        return AuthResponse.builder()
+                .token(token)
+                .customerId(customer.getId())
+                .email(customer.getEmail())
+                .firstName(customer.getFirstName())
+                .lastName(customer.getLastName())
+                .role(customer.getRole())
+                .build();
+    }
+
+    /**
+     * Generuje uproszczony IBAN dla BankEuroB (DE format).
+     * W produkcji należałoby użyć algorytmu ISO 13616.
+     */
+    private String generateIban() {
+        long accountNumber = System.currentTimeMillis() % 1_000_000_000_000_000_000L;
+        return String.format("DE89%018d", accountNumber);
+    }
+}

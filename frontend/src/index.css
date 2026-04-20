@@ -1,0 +1,112 @@
+:root {
+  /* Kolory - Dark Mode Premium (DOMYŚLNY) */
+  --bg-primary: #0a0f1d;
+  --bg-secondary: #131b2f;
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  
+  /* Złoto / Neonowe akcenty */
+  --accent-gold: #fbbf24;
+  --accent-gold-hover: #f59e0b;
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  
+  --error-color: #ef4444;
+  --success-color: #10b981;
+
+  /* Glassmorphism setup */
+  --glass-bg: rgba(19, 27, 47, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-hover: rgba(255, 255, 255, 0.05);
+
+  /* Płynne gradienty */
+  --gradient-glow: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 40%),
+                   radial-gradient(circle at bottom left, rgba(251, 191, 36, 0.1), transparent 40%);
+  --card-gradient: linear-gradient(135deg, rgba(19, 27, 47, 0.8) 0%, rgba(37, 99, 235, 0.15) 100%);
+
+  /* Zmienne fizycznej karty kredytowej */
+  --card-cc-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  --card-cc-text: #ffffff;
+  --card-cc-text-muted: rgba(255,255,255,0.6);
+  --card-cc-border: rgba(255,255,255,0.1);
+}
+
+[data-theme="light"] {
+  /* Kolory - Light Mode Premium */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  
+  /* Akcenty specjalnie ściemnione dla zachowania kontrastu na białym */
+  --accent-gold: #d97706;  
+  --accent-gold-hover: #b45309;
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #1d4ed8;
+  
+  /* Glassmorphism pod jasny setup */
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+  --glass-hover: rgba(0, 0, 0, 0.04);
+
+  /* Płynne gradienty na jasnym tle */
+  --gradient-glow: radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 40%),
+                   radial-gradient(circle at bottom left, rgba(217, 119, 6, 0.05), transparent 40%);
+  --card-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(241, 245, 249, 1) 100%);
+  
+  /* Zmienne fizycznej karty kredytowej (wersja jasna / srebrna / platynowa) */
+  --card-cc-bg: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+  --card-cc-text: #1e293b;
+  --card-cc-text-muted: #64748b;
+  --card-cc-border: rgba(0, 0, 0, 0.15);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  background-image: var(--gradient-glow);
+  background-attachment: fixed;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism klasa ogólnego przeznaczenia */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.3s ease;
+}
+
+/* Scrollbar premium */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
+}
