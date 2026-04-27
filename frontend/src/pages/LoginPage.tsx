@@ -9,6 +9,7 @@ import styles from './Auth.module.css';
 import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { useAuthStore } from '../store/useAuthStore';
+import { useState, useEffect } from 'react';
 
 const loginSchema = z.object({
   email: z.string().email('Niepoprawny format email'),
@@ -20,6 +21,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const [pendingAttemptId, setPendingAttemptId] = useState<string | null>(null);
   
   const {
     register,
@@ -33,6 +35,12 @@ export const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginForm) => {
     try {
       const response = await axiosClient.post('/auth/login', data);
+      
+      if (response.data.requiresParentApproval) {
+        setPendingAttemptId(response.data.loginAttemptId);
+        return;
+      }
+
       const { token, ...user } = response.data;
       setAuth(user, token);
       navigate('/dashboard');
@@ -43,6 +51,47 @@ export const LoginPage: React.FC = () => {
       });
     }
   };
+
+  useEffect(() => {
+    if (!pendingAttemptId) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const response = await axiosClient.get(`/auth/login-status/${pendingAttemptId}`);
+        if (!response.data.requiresParentApproval && response.data.token) {
+          clearInterval(intervalId);
+          const { token, ...user } = response.data;
+          setAuth(user, token);
+          navigate('/dashboard');
+        }
+      } catch (err: any) {
+        if (err.response?.data?.message === 'Logowanie odrzucone przez rodzica' || err.response?.status === 400 || err.response?.status === 500) {
+          clearInterval(intervalId);
+          setPendingAttemptId(null);
+          setError('root', {
+            type: 'manual',
+            message: 'Rodzic odrzucił logowanie.',
+          });
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [pendingAttemptId, navigate, setAuth, setError]);
+
+  if (pendingAttemptId) {
+    return (
+      <div className={styles.authContainer}>
+        <div className={`glass-panel ${styles.authCard}`} style={{ textAlign: 'center' }}>
+          <h2>Oczekiwanie na rodzica...</h2>
+          <p>Twoje logowanie musi zostać zatwierdzone przez rodzica na jego urządzeniu.</p>
+          <div style={{ marginTop: '20px' }}>
+            <span className={styles.loader}></span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.authContainer}>

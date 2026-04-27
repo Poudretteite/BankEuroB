@@ -10,7 +10,6 @@ import {
   Clock,
   Send,
   PieChart,
-  ShieldCheck,
   MoreHorizontal,
   Wifi,
   TrendingUp,
@@ -28,6 +27,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { Link } from 'react-router-dom';
+import { JuniorManagementPanel } from '../components/JuniorManagementPanel';
 
 interface Account {
   id: string;
@@ -182,6 +182,8 @@ export const DashboardPage: React.FC = () => {
               </ResponsiveContainer>
             </div>
           </div>
+
+          <JuniorManagementPanel />
         </div>
 
         {/* PRAWA KOLUMNA */}

@@ -49,7 +49,9 @@ public class TransferService {
         Transaction transaction = new Transaction();
         transaction.setReferenceNumber(generateReferenceNumber());
         transaction.setTransactionType(request.getTransferType());
-        transaction.setStatus("PROCESSING");
+        
+        boolean isJunior = "JUNIOR".equals(senderAccount.getAccountType());
+        transaction.setStatus(isJunior ? "PENDING" : "PROCESSING");
         transaction.setSenderAccount(senderAccount);
         transaction.setSenderIban(senderAccount.getIban());
         transaction.setSenderName(
@@ -63,26 +65,29 @@ public class TransferService {
         transaction.setTitle(request.getTitle());
         transaction.setRequestedAt(OffsetDateTime.now());
 
-        // Zaktualizuj saldo nadawcy
-        senderAccount.setBalance(senderAccount.getBalance().subtract(request.getAmount()));
-        senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(request.getAmount()));
-        accountRepository.save(senderAccount);
+        if (!isJunior) {
+            // Zaktualizuj saldo nadawcy
+            senderAccount.setBalance(senderAccount.getBalance().subtract(request.getAmount()));
+            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(request.getAmount()));
+            accountRepository.save(senderAccount);
 
-        // Dla przelewów wewnętrznych — zaktualizuj saldo odbiorcy natychmiast
-        boolean isInternal = "INTERNAL".equals(request.getTransferType());
-        if (isInternal) {
-            accountRepository.findByIban(request.getReceiverIban()).ifPresent(receiverAccount -> {
-                receiverAccount.setBalance(receiverAccount.getBalance().add(request.getAmount()));
-                receiverAccount.setAvailableBalance(receiverAccount.getAvailableBalance().add(request.getAmount()));
-                accountRepository.save(receiverAccount);
-                transaction.setReceiverName(
-                        receiverAccount.getCustomer().getFirstName() + " " + receiverAccount.getCustomer().getLastName()
-                );
-            });
+            // Dla przelewów wewnętrznych — zaktualizuj saldo odbiorcy natychmiast
+            boolean isInternal = "INTERNAL".equals(request.getTransferType());
+            if (isInternal) {
+                accountRepository.findByIban(request.getReceiverIban()).ifPresent(receiverAccount -> {
+                    receiverAccount.setBalance(receiverAccount.getBalance().add(request.getAmount()));
+                    receiverAccount.setAvailableBalance(receiverAccount.getAvailableBalance().add(request.getAmount()));
+                    accountRepository.save(receiverAccount);
+                    transaction.setReceiverName(
+                            receiverAccount.getCustomer().getFirstName() + " " + receiverAccount.getCustomer().getLastName()
+                    );
+                });
+            }
+
+            transaction.setStatus("COMPLETED");
+            transaction.setCompletedAt(OffsetDateTime.now());
         }
 
-        transaction.setStatus("COMPLETED");
-        transaction.setCompletedAt(OffsetDateTime.now());
         Transaction saved = transactionRepository.save(transaction);
 
         return toDto(saved);
@@ -103,6 +108,57 @@ public class TransferService {
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void approveJuniorTransaction(UUID transactionId, boolean approved, Authentication authentication) {
+        CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono przelewu"));
+
+        Account senderAccount = transaction.getSenderAccount();
+        if (!"JUNIOR".equals(senderAccount.getAccountType())) {
+            throw new RuntimeException("Przelew nie pochodzi z konta JUNIOR");
+        }
+        if (!senderAccount.getParentAccount().getCustomer().getId().equals(userDetails.getCustomerId())) {
+            throw new RuntimeException("Brak dostępu do zatwierdzenia tego przelewu");
+        }
+
+        if (!"PENDING".equals(transaction.getStatus())) {
+            throw new RuntimeException("Przelew nie oczekuje na zatwierdzenie");
+        }
+
+        if (!approved) {
+            transaction.setStatus("REJECTED");
+            transaction.setCompletedAt(OffsetDateTime.now());
+            transactionRepository.save(transaction);
+            return;
+        }
+
+        if (senderAccount.getAvailableBalance().compareTo(transaction.getAmount()) < 0) {
+            transaction.setStatus("FAILED");
+            transaction.setCompletedAt(OffsetDateTime.now());
+            transactionRepository.save(transaction);
+            throw new IllegalStateException("Niewystarczające saldo na koncie Junior");
+        }
+
+        // Process deduction
+        senderAccount.setBalance(senderAccount.getBalance().subtract(transaction.getAmount()));
+        senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(transaction.getAmount()));
+        accountRepository.save(senderAccount);
+
+        boolean isInternal = "INTERNAL".equals(transaction.getTransactionType());
+        if (isInternal) {
+            accountRepository.findByIban(transaction.getReceiverIban()).ifPresent(receiverAccount -> {
+                receiverAccount.setBalance(receiverAccount.getBalance().add(transaction.getAmount()));
+                receiverAccount.setAvailableBalance(receiverAccount.getAvailableBalance().add(transaction.getAmount()));
+                accountRepository.save(receiverAccount);
+            });
+        }
+
+        transaction.setStatus("COMPLETED");
+        transaction.setCompletedAt(OffsetDateTime.now());
+        transactionRepository.save(transaction);
     }
 
     private TransactionDto toDto(Transaction tx) {

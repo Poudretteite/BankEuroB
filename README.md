@@ -1,8 +1,8 @@
-# BankEuroB 🏦
+# BankEuroB 
 
 Nowoczesna aplikacja bankowa (Premium Banking) realizująca pełne środowisko Full-Stack. Architektura podzielona na backend napisany w Javie (Spring Boot) oraz piękny, interaktywny interfejs w React (Vite, TypeScript, autorski design Glassmorphism).
 
-## 🚀 Jak uruchomić projekt lokalnie u siebie?
+## Jak uruchomić projekt lokalnie u siebie?
 
 Aby projekt zadziałał, musisz posiadać zainstalowane:
 - **Docker** (i Docker Compose)
@@ -41,10 +41,10 @@ npm install
 npm run dev
 ```
 
-### Krok 4: Gotowe! 🎉
+### Krok 4: Gotowe! 
 Aplikacja jest już w pełni funkcjonalna:
-- 🔥 Strona (Frontend) dostępna jest pod adresem: [http://localhost:5173/](http://localhost:5173/)
-- ⚙️ Endpointy API (Backend) działają pod adresem: `http://localhost:8080/`
+- Strona (Frontend) dostępna jest pod adresem: [http://localhost:5173/](http://localhost:5173/)
+- Endpointy API (Backend) działają pod adresem: `http://localhost:8080/`
 
 **Dane konta testowego:**
 - Email: `anna.kowalski@example.com`

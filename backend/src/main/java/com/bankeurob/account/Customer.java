@@ -9,11 +9,15 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "customers")
 @Getter
 @Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "parent"})
 public class Customer {
 
     @Id
@@ -61,4 +65,8 @@ public class Customer {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Customer parent;
 }

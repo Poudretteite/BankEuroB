@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +25,7 @@ public class AuthService {
 
     private final CustomerRepository customerRepository;
     private final AccountRepository accountRepository;
+    private final LoginAttemptRepository loginAttemptRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -71,24 +73,85 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
 
-        Customer customer = customerRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Klient nie znaleziony"));
+            Customer customer = customerRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new RuntimeException("Klient nie znaleziony"));
 
-        CustomerUserDetails userDetails = new CustomerUserDetails(customer);
-        String token = jwtService.generateToken(userDetails);
+            if ("JUNIOR".equals(customer.getRole())) {
+                LoginAttempt attempt = new LoginAttempt();
+                attempt.setCustomer(customer);
+                attempt.setStatus("PENDING");
+                attempt = loginAttemptRepository.save(attempt);
 
-        return AuthResponse.builder()
-                .token(token)
-                .customerId(customer.getId())
-                .email(customer.getEmail())
-                .firstName(customer.getFirstName())
-                .lastName(customer.getLastName())
-                .role(customer.getRole())
-                .build();
+                return AuthResponse.builder()
+                        .requiresParentApproval(true)
+                        .loginAttemptId(attempt.getId())
+                        .customerId(customer.getId())
+                        .email(customer.getEmail())
+                        .firstName(customer.getFirstName())
+                        .lastName(customer.getLastName())
+                        .role(customer.getRole())
+                        .build();
+            }
+
+            CustomerUserDetails userDetails = new CustomerUserDetails(customer);
+            String token = jwtService.generateToken(userDetails);
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .requiresParentApproval(false)
+                    .customerId(customer.getId())
+                    .email(customer.getEmail())
+                    .firstName(customer.getFirstName())
+                    .lastName(customer.getLastName())
+                    .role(customer.getRole())
+                    .build();
+        } catch (Exception e) {
+            System.err.println("BŁĄD LOGOWANIA: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    public AuthResponse checkLoginStatus(UUID loginAttemptId) {
+        LoginAttempt attempt = loginAttemptRepository.findById(loginAttemptId)
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono próby logowania"));
+
+        if ("REJECTED".equals(attempt.getStatus())) {
+            throw new RuntimeException("Logowanie odrzucone przez rodzica");
+        }
+
+        if ("PENDING".equals(attempt.getStatus())) {
+            return AuthResponse.builder()
+                    .requiresParentApproval(true)
+                    .loginAttemptId(attempt.getId())
+                    .build();
+        }
+
+        if ("APPROVED".equals(attempt.getStatus())) {
+            attempt.setStatus("CONSUMED");
+            loginAttemptRepository.save(attempt);
+
+            Customer customer = attempt.getCustomer();
+            CustomerUserDetails userDetails = new CustomerUserDetails(customer);
+            String token = jwtService.generateToken(userDetails);
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .requiresParentApproval(false)
+                    .customerId(customer.getId())
+                    .email(customer.getEmail())
+                    .firstName(customer.getFirstName())
+                    .lastName(customer.getLastName())
+                    .role(customer.getRole())
+                    .build();
+        }
+
+        throw new RuntimeException("Nieprawidłowy status logowania");
     }
 
     /**

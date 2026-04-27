@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Send, FileText, Hash, DollarSign } from 'lucide-react';
 import styles from './Transfer.module.css';
 import axiosClient from '../api/axiosClient';
+import { useAuthStore } from '../store/useAuthStore';
 
 const transferSchema = z.object({
   receiverIban: z.string().min(15, 'Numer IBAN jest za krótki'),
@@ -18,6 +19,7 @@ const transferSchema = z.object({
 type TransferForm = z.infer<typeof transferSchema>;
 
 export const TransferPage: React.FC = () => {
+  const { user } = useAuthStore();
   const [isSuccess, setIsSuccess] = useState(false);
 
   const {
@@ -27,7 +29,7 @@ export const TransferPage: React.FC = () => {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<TransferForm>({
-    resolver: zodResolver(transferSchema),
+    resolver: zodResolver(transferSchema) as any,
   });
 
   const onSubmit = async (data: TransferForm) => {
@@ -54,7 +56,13 @@ export const TransferPage: React.FC = () => {
 
       {isSuccess && (
         <div className={styles.successToast}>
-          Przelew został zrealizowany pomyślnie!
+          Przelew został zrealizowany pomyślnie{user?.role === 'JUNIOR' ? ' i oczekuje na zatwierdzenie przez rodzica' : ''}!
+        </div>
+      )}
+
+      {user?.role === 'JUNIOR' && (
+        <div style={{ background: 'rgba(255,165,0,0.1)', color: 'orange', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid orange' }}>
+          Jesteś zalogowany jako Junior. Wszystkie wykonane przez ciebie przelewy będą musiały zostać zaakceptowane przez twojego rodzica, zanim środki zostaną pobrane z konta.
         </div>
       )}
 

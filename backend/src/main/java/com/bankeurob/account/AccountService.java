@@ -9,14 +9,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import com.bankeurob.account.dto.JuniorAccountRequest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 @RequiredArgsConstructor
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final CustomerRepository customerRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public List<AccountDto> getMyAccounts(Authentication authentication) {
@@ -36,6 +42,54 @@ public class AccountService {
             throw new AccessDeniedException("Brak dostępu do tego konta");
         }
         return toDto(account);
+    }
+
+    @Transactional
+    public void createJuniorAccount(JuniorAccountRequest request, Authentication authentication) {
+        CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
+        Customer parent = customerRepository.findById(userDetails.getCustomerId())
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono rodzica"));
+
+        if (customerRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email jest już zajęty");
+        }
+
+        Customer child = new Customer();
+        child.setEmail(request.getEmail());
+        child.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        child.setFirstName(request.getFirstName());
+        child.setLastName(request.getLastName());
+        child.setDateOfBirth(request.getDateOfBirth());
+        child.setRole("JUNIOR");
+        child.setParent(parent);
+        child.setAddressCountry(parent.getAddressCountry());
+        
+        Customer savedChild = customerRepository.save(child);
+
+        Account parentAccount = accountRepository.findByCustomerId(parent.getId()).stream().findFirst()
+                .orElseThrow(() -> new RuntimeException("Rodzic nie ma konta głównego"));
+
+        Account childAccount = new Account();
+        childAccount.setCustomer(savedChild);
+        childAccount.setIban(generateIban());
+        childAccount.setAccountType("JUNIOR");
+        childAccount.setCurrency("EUR");
+        childAccount.setBalance(BigDecimal.ZERO);
+        childAccount.setAvailableBalance(BigDecimal.ZERO);
+        childAccount.setParentAccount(parentAccount);
+        
+        accountRepository.save(childAccount);
+    }
+
+    @Transactional(readOnly = true)
+    public Customer getCustomerByEmail(String email) {
+        return customerRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono klienta: " + email));
+    }
+
+    private String generateIban() {
+        long accountNumber = System.currentTimeMillis() % 1_000_000_000_000_000_000L;
+        return String.format("DE89%018d", accountNumber);
     }
 
     private AccountDto toDto(Account account) {
