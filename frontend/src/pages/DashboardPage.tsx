@@ -18,13 +18,14 @@ import {
   CreditCard as CreditCardIcon
 } from 'lucide-react';
 import {
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend
 } from 'recharts';
 import { Link } from 'react-router-dom';
 import { JuniorManagementPanel } from '../components/JuniorManagementPanel';
@@ -49,17 +50,39 @@ interface Transaction {
   status: string;
 }
 
-// Mockowe punkty do wykresu by pulpit był żywszy wizualnie
-const generateMockChartData = (currentBalance: number) => {
+const generateAnalyticsData = (transactions: Transaction[] | undefined, mainIban: string | undefined) => {
+  if (!transactions || !mainIban) return [];
+  
   const data = [];
-  let bal = currentBalance - 1500;
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i * 3);
-    bal += Math.random() * 500 - 150;
+  const now = new Date();
+  
+  // Cofamy się o 5 miesięcy + bieżący = 6 miesięcy
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthName = d.toLocaleDateString('pl-PL', { month: 'short' });
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    
+    let income = 0;
+    let expense = 0;
+    
+    transactions.forEach(tx => {
+      const txDate = new Date(tx.requestedAt);
+      // Jeśli transakcja była w tym miesiącu i roku
+      if (txDate.getFullYear() === year && txDate.getMonth() === month && tx.status !== 'FAILED') {
+        if (tx.receiverIban === mainIban) {
+          income += tx.amount;
+        }
+        if (tx.senderIban === mainIban) {
+          expense += tx.amount;
+        }
+      }
+    });
+    
     data.push({
-      name: d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }),
-      balance: Math.max(bal, 100).toFixed(2),
+      name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+      Wpływy: parseFloat(income.toFixed(2)),
+      Wydatki: parseFloat(expense.toFixed(2)),
     });
   }
   return data;
@@ -107,9 +130,8 @@ export const DashboardPage: React.FC = () => {
   });
 
   const chartData = useMemo(() => {
-    if (!mainAccount) return [];
-    return generateMockChartData(mainAccount.balance);
-  }, [mainAccount]);
+    return generateAnalyticsData(transactions, mainAccount?.iban);
+  }, [transactions, mainAccount]);
 
   if (accountsLoading) return <div className={styles.loader}>Synchronizacja systemu...</div>;
 
@@ -157,28 +179,25 @@ export const DashboardPage: React.FC = () => {
           {/* Wykres aktywności */}
           <div className={`glass-panel ${styles.chartCard}`}>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}><PieChart size={18} /> Analityka Salda (Projekcja)</h3>
-              <span className={styles.badge}>Ostatnie 30 dni</span>
+              <h3 className={styles.cardTitle}><PieChart size={18} /> Analityka Salda (Faktyczna)</h3>
+              <span className={styles.badge}>Ostatnie 6 miesięcy</span>
             </div>
 
             <div className={styles.chartWrapper}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent-blue)" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="var(--accent-blue)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="name" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px' }}
-                    itemStyle={{ color: 'var(--accent-gold)' }}
+                    itemStyle={{ color: 'var(--text-primary)' }}
+                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
                   />
-                  <Area type="monotone" dataKey="balance" stroke="var(--accent-blue)" strokeWidth={3} fillOpacity={1} fill="url(#colorBalance)" />
-                </AreaChart>
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                  <Bar dataKey="Wpływy" fill="var(--success-color)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Wydatki" fill="#e74c3c" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
