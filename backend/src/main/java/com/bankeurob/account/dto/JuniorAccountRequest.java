@@ -11,4 +11,9 @@ public class JuniorAccountRequest {
     private String email;
     private String password;
     private LocalDate dateOfBirth;
+    private String pesel;
+    private String phone;
+    private String addressStreet;
+    private String addressCity;
+    private String addressCountry;
 }

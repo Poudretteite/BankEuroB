@@ -67,6 +67,17 @@ public class DataSeeder implements ApplicationRunner {
         );
         createAccount(jan, "DE89370400440000200002", new BigDecimal("5000.00"));
 
+        // ─── Klient testowy 3: Kamil Kowalski (JUNIOR) ────────
+        Customer kamil = createJunior(
+                "junior@example.com",
+                "password123",
+                "Kamil",
+                "Kowalski",
+                LocalDate.of(2015, 1, 1),
+                anna
+        );
+        createJuniorAccount(kamil, "DE89370400440000300003", new BigDecimal("150.00"), anna);
+
         log.info("""
                 DataSeeder: inicjalizacja zakończona!
                 ╔══════════════════════════════════════════════╗
@@ -75,6 +86,7 @@ public class DataSeeder implements ApplicationRunner {
                 ║ admin@bankeurob.eu       / admin123          ║
                 ║ anna.kowalski@example.com / password123      ║
                 ║ jan.nowak@example.com    / password123       ║
+                ║ junior@example.com       / password123       ║
                 ╚══════════════════════════════════════════════╝
                 """);
     }
@@ -92,6 +104,20 @@ public class DataSeeder implements ApplicationRunner {
         return customerRepository.save(c);
     }
 
+    private Customer createJunior(String email, String password, String firstName,
+                                  String lastName, LocalDate dob, Customer parent) {
+        Customer c = new Customer();
+        c.setEmail(email);
+        c.setPasswordHash(passwordEncoder.encode(password));
+        c.setFirstName(firstName);
+        c.setLastName(lastName);
+        c.setDateOfBirth(dob);
+        c.setRole("JUNIOR");
+        c.setParent(parent);
+        c.setAddressCountry("DE");
+        return customerRepository.save(c);
+    }
+
     private void createAccount(Customer customer, String iban, BigDecimal balance) {
         Account a = new Account();
         a.setCustomer(customer);
@@ -100,6 +126,23 @@ public class DataSeeder implements ApplicationRunner {
         a.setCurrency("EUR");
         a.setBalance(balance);
         a.setAvailableBalance(balance);
+        a.setOverdraftLimit(new BigDecimal("500.00"));
+        accountRepository.save(a);
+    }
+
+    private void createJuniorAccount(Customer customer, String iban, BigDecimal balance, Customer parent) {
+        // Znajdź konto rodzica
+        Account parentAccount = accountRepository.findByCustomerId(parent.getId()).stream().findFirst().orElse(null);
+
+        Account a = new Account();
+        a.setCustomer(customer);
+        a.setIban(iban);
+        a.setAccountType("JUNIOR");
+        a.setCurrency("EUR");
+        a.setBalance(balance);
+        a.setAvailableBalance(balance);
+        a.setParentAccount(parentAccount);
+        a.setDailyLimit(new BigDecimal("50.00"));
         accountRepository.save(a);
     }
 }

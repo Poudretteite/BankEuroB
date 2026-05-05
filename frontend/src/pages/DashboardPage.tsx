@@ -45,7 +45,7 @@ interface Transaction {
   title: string;
   amount: number;
   currency: string;
-  timestamp: string;
+  requestedAt: string;
   status: string;
 }
 
@@ -277,7 +277,7 @@ export const DashboardPage: React.FC = () => {
           <div className={`glass-panel ${styles.transactionsCard}`}>
             <div className={styles.cardHeader}>
               <h3 className={styles.cardTitle}>Ostatnia aktywność</h3>
-              <Link to="#" className={styles.seeAllLink}>Wszystkie</Link>
+              <Link to="/history" className={styles.seeAllLink}>Wszystkie</Link>
             </div>
 
             <div className={styles.transactionsList}>
@@ -295,9 +295,7 @@ export const DashboardPage: React.FC = () => {
                       <div className={styles.txDetails}>
                         <div className={styles.txTitle}>{tx.title}</div>
                         <div className={styles.txDate}>
-                          {Array.isArray(tx.timestamp)
-                            ? `${tx.timestamp[0]}-${String(tx.timestamp[1]).padStart(2, '0')}-${String(tx.timestamp[2]).padStart(2, '0')} ${String(tx.timestamp[3]).padStart(2, '0')}:${String(tx.timestamp[4]).padStart(2, '0')}` // Fallback gdy Spring zrzuci tablicę
-                            : new Date(tx.timestamp).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(tx.requestedAt).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
 

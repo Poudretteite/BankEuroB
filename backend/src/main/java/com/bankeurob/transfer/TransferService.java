@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -39,10 +40,31 @@ public class TransferService {
             throw new IllegalStateException("Konto nadawcy jest nieaktywne");
         }
 
-        if (senderAccount.getAvailableBalance().compareTo(request.getAmount()) < 0) {
+        BigDecimal overdraftLimit = senderAccount.getOverdraftLimit() != null ? senderAccount.getOverdraftLimit() : BigDecimal.ZERO;
+        BigDecimal availableFunds = senderAccount.getAvailableBalance().add(overdraftLimit);
+
+        BigDecimal fee = getFee(request.getTransferType());
+        BigDecimal totalAmount = request.getAmount().add(fee);
+
+        BigDecimal overdraftFee = BigDecimal.ZERO;
+        if (senderAccount.getAvailableBalance().compareTo(BigDecimal.ZERO) >= 0 &&
+            senderAccount.getAvailableBalance().compareTo(totalAmount) < 0) {
+            overdraftFee = new BigDecimal("2.00");
+            totalAmount = totalAmount.add(overdraftFee);
+        }
+
+        if (availableFunds.compareTo(totalAmount) < 0) {
             throw new IllegalStateException(
-                    "Niewystarczające saldo. Dostępne: " + senderAccount.getAvailableBalance() + " EUR"
+                    "Niewystarczające środki (Kwota: " + request.getAmount() + " EUR, Opłaty: " + fee.add(overdraftFee) + " EUR). Dostępne saldo: " + senderAccount.getAvailableBalance() + " EUR, Limit debetowy: " + overdraftLimit + " EUR."
             );
+        }
+
+        boolean isInternal = "INTERNAL".equals(request.getTransferType());
+        if (isInternal) {
+            boolean receiverExists = accountRepository.findByIban(request.getReceiverIban()).isPresent();
+            if (!receiverExists) {
+                throw new IllegalArgumentException("Dla przelewów wewnętrznych, konto odbiorcy musi należeć do BankEuroB.");
+            }
         }
 
         // Tworzenie rekordu transakcji
@@ -51,7 +73,15 @@ public class TransferService {
         transaction.setTransactionType(request.getTransferType());
         
         boolean isJunior = "JUNIOR".equals(senderAccount.getAccountType());
-        transaction.setStatus(isJunior ? "PENDING" : "PROCESSING");
+        
+        if (isJunior) {
+            transaction.setStatus("PENDING");
+        } else if ("SEPA_SCT".equals(request.getTransferType())) {
+            transaction.setStatus("PROCESSING");
+        } else {
+            transaction.setStatus("COMPLETED");
+            transaction.setCompletedAt(OffsetDateTime.now());
+        }
         transaction.setSenderAccount(senderAccount);
         transaction.setSenderIban(senderAccount.getIban());
         transaction.setSenderName(
@@ -66,13 +96,12 @@ public class TransferService {
         transaction.setRequestedAt(OffsetDateTime.now());
 
         if (!isJunior) {
-            // Zaktualizuj saldo nadawcy
-            senderAccount.setBalance(senderAccount.getBalance().subtract(request.getAmount()));
-            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(request.getAmount()));
+            // Zaktualizuj saldo nadawcy (kwota + prowizja)
+            senderAccount.setBalance(senderAccount.getBalance().subtract(totalAmount));
+            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
             accountRepository.save(senderAccount);
 
             // Dla przelewów wewnętrznych — zaktualizuj saldo odbiorcy natychmiast
-            boolean isInternal = "INTERNAL".equals(request.getTransferType());
             if (isInternal) {
                 accountRepository.findByIban(request.getReceiverIban()).ifPresent(receiverAccount -> {
                     receiverAccount.setBalance(receiverAccount.getBalance().add(request.getAmount()));
@@ -83,9 +112,6 @@ public class TransferService {
                     );
                 });
             }
-
-            transaction.setStatus("COMPLETED");
-            transaction.setCompletedAt(OffsetDateTime.now());
         }
 
         Transaction saved = transactionRepository.save(transaction);
@@ -135,7 +161,10 @@ public class TransferService {
             return;
         }
 
-        if (senderAccount.getAvailableBalance().compareTo(transaction.getAmount()) < 0) {
+        BigDecimal fee = getFee(transaction.getTransactionType());
+        BigDecimal totalAmount = transaction.getAmount().add(fee);
+
+        if (senderAccount.getAvailableBalance().compareTo(totalAmount) < 0) {
             transaction.setStatus("FAILED");
             transaction.setCompletedAt(OffsetDateTime.now());
             transactionRepository.save(transaction);
@@ -143,8 +172,8 @@ public class TransferService {
         }
 
         // Process deduction
-        senderAccount.setBalance(senderAccount.getBalance().subtract(transaction.getAmount()));
-        senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(transaction.getAmount()));
+        senderAccount.setBalance(senderAccount.getBalance().subtract(totalAmount));
+        senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
         accountRepository.save(senderAccount);
 
         boolean isInternal = "INTERNAL".equals(transaction.getTransactionType());
@@ -156,8 +185,12 @@ public class TransferService {
             });
         }
 
-        transaction.setStatus("COMPLETED");
-        transaction.setCompletedAt(OffsetDateTime.now());
+        if ("SEPA_SCT".equals(transaction.getTransactionType())) {
+            transaction.setStatus("PROCESSING");
+        } else {
+            transaction.setStatus("COMPLETED");
+            transaction.setCompletedAt(OffsetDateTime.now());
+        }
         transactionRepository.save(transaction);
     }
 
@@ -182,5 +215,14 @@ public class TransferService {
     private String generateReferenceNumber() {
         return "BEB" + System.currentTimeMillis()
                 + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+
+    private BigDecimal getFee(String transferType) {
+        if ("SEPA_INSTANT".equals(transferType)) {
+            return new BigDecimal("0.50");
+        } else if ("RTGS_TARGET2".equals(transferType)) {
+            return new BigDecimal("5.00");
+        }
+        return BigDecimal.ZERO;
     }
 }

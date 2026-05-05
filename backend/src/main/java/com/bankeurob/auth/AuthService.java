@@ -45,18 +45,29 @@ public class AuthService {
         customer.setPhone(request.getPhone());
         customer.setAddressStreet(request.getAddressStreet());
         customer.setAddressCity(request.getAddressCity());
+        customer.setAddressCountry(request.getAddressCountry());
+        customer.setPesel(request.getPesel());
         customer.setRole("CUSTOMER");
 
         Customer saved = customerRepository.save(customer);
 
-        // Automatycznie utwórz konto EUR
+        // Automatycznie utwórz konto w EUR
         Account account = new Account();
         account.setCustomer(saved);
-        account.setIban(generateIban());
+        String countryCode = request.getAddressCountry() != null ? request.getAddressCountry() : "DE";
+        account.setIban(generateIban(countryCode));
         account.setAccountType("STANDARD");
         account.setCurrency("EUR");
         account.setBalance(BigDecimal.ZERO);
         account.setAvailableBalance(BigDecimal.ZERO);
+
+        int age = java.time.Period.between(saved.getDateOfBirth(), java.time.LocalDate.now()).getYears();
+        if (age >= 18) {
+            account.setOverdraftLimit(new BigDecimal("500.00"));
+        } else {
+            account.setOverdraftLimit(BigDecimal.ZERO);
+        }
+
         accountRepository.save(account);
 
         CustomerUserDetails userDetails = new CustomerUserDetails(saved);
@@ -72,6 +83,7 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
@@ -117,6 +129,7 @@ public class AuthService {
         }
     }
 
+    @Transactional
     public AuthResponse checkLoginStatus(UUID loginAttemptId) {
         LoginAttempt attempt = loginAttemptRepository.findById(loginAttemptId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono próby logowania"));
@@ -155,11 +168,14 @@ public class AuthService {
     }
 
     /**
-     * Generuje uproszczony IBAN dla BankEuroB (DE format).
+     * Generuje uproszczony IBAN na podstawie wybranego kraju.
      * W produkcji należałoby użyć algorytmu ISO 13616.
      */
-    private String generateIban() {
+    private String generateIban(String countryCode) {
+        if (countryCode == null || countryCode.length() != 2) {
+            countryCode = "DE";
+        }
         long accountNumber = System.currentTimeMillis() % 1_000_000_000_000_000_000L;
-        return String.format("DE89%018d", accountNumber);
+        return String.format("%s89%018d", countryCode.toUpperCase(), accountNumber);
     }
 }

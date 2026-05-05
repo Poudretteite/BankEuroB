@@ -42,6 +42,9 @@ public class Account {
     @Column(name = "available_balance", nullable = false, precision = 19, scale = 4)
     private BigDecimal availableBalance = BigDecimal.ZERO;
 
+    @Column(name = "overdraft_limit", nullable = false, precision = 19, scale = 4)
+    private BigDecimal overdraftLimit = BigDecimal.ZERO;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_account_id")
     private Account parentAccount;

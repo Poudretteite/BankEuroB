@@ -29,4 +29,6 @@ public class RegisterRequest {
     private String phone;
     private String addressStreet;
     private String addressCity;
+    private String addressCountry;
+    private String pesel;
 }

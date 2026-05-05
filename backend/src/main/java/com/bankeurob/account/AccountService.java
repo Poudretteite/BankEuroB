@@ -60,9 +60,13 @@ public class AccountService {
         child.setFirstName(request.getFirstName());
         child.setLastName(request.getLastName());
         child.setDateOfBirth(request.getDateOfBirth());
+        child.setPesel(request.getPesel());
+        child.setPhone(request.getPhone());
+        child.setAddressStreet(request.getAddressStreet());
+        child.setAddressCity(request.getAddressCity());
         child.setRole("JUNIOR");
         child.setParent(parent);
-        child.setAddressCountry(parent.getAddressCountry());
+        child.setAddressCountry(request.getAddressCountry() != null && !request.getAddressCountry().isEmpty() ? request.getAddressCountry() : parent.getAddressCountry());
         
         Customer savedChild = customerRepository.save(child);
 
@@ -71,7 +75,7 @@ public class AccountService {
 
         Account childAccount = new Account();
         childAccount.setCustomer(savedChild);
-        childAccount.setIban(generateIban());
+        childAccount.setIban(generateIban(savedChild.getAddressCountry()));
         childAccount.setAccountType("JUNIOR");
         childAccount.setCurrency("EUR");
         childAccount.setBalance(BigDecimal.ZERO);
@@ -87,9 +91,12 @@ public class AccountService {
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono klienta: " + email));
     }
 
-    private String generateIban() {
+    private String generateIban(String countryCode) {
+        if (countryCode == null || countryCode.length() != 2) {
+            countryCode = "DE";
+        }
         long accountNumber = System.currentTimeMillis() % 1_000_000_000_000_000_000L;
-        return String.format("DE89%018d", accountNumber);
+        return String.format("%s89%018d", countryCode.toUpperCase(), accountNumber);
     }
 
     private AccountDto toDto(Account account) {

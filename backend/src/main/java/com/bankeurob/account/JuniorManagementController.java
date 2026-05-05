@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 import com.bankeurob.transfer.TransactionRepository;
 import com.bankeurob.transfer.dto.TransactionDto;
 import com.bankeurob.transfer.Transaction;
@@ -33,6 +34,7 @@ public class JuniorManagementController {
     }
 
     @GetMapping("/pending-logins")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<java.util.Map<String, Object>>> getPendingLogins(Authentication authentication) {
         if (authentication == null) {
             return ResponseEntity.status(401).build();
@@ -60,6 +62,7 @@ public class JuniorManagementController {
     }
 
     @PostMapping("/approve-login/{attemptId}")
+    @Transactional
     public ResponseEntity<?> approveLogin(@PathVariable UUID attemptId, @RequestParam boolean approved, Authentication authentication) {
         CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
         LoginAttempt attempt = loginAttemptRepository.findById(attemptId)
@@ -81,6 +84,7 @@ public class JuniorManagementController {
     }
 
     @GetMapping("/pending-transfers")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<TransactionDto>> getPendingTransfers(Authentication authentication) {
         CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
         // find all transactions where sender is JUNIOR and sender's parent is current user and status is PENDING
