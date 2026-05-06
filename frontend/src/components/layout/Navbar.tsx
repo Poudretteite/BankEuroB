@@ -3,7 +3,7 @@ import styles from './Navbar.module.css';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
-import { LogOut, Home, Send, Wallet, Sun, Moon, Settings, List } from 'lucide-react';
+import { LogOut, Home, Send, Wallet, Sun, Moon, Settings, List, KeyRound } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -36,15 +36,22 @@ export const Navbar: React.FC = () => {
             <Home size={18} />
             <span>Pulpit</span>
           </Link>
-          <Link 
-            to="/transfer" 
+          <Link
+            to="/transfer"
             className={`${styles.navItem} ${isActive('/transfer') ? styles.active : ''}`}
           >
             <Send size={18} />
             <span>Przelew</span>
           </Link>
-          <Link 
-            to="/history" 
+          <Link
+            to="/blik"
+            className={`${styles.navItem} ${isActive('/blik') ? styles.active : ''}`}
+          >
+            <KeyRound size={18} />
+            <span>BLIK</span>
+          </Link>
+          <Link
+            to="/history"
             className={`${styles.navItem} ${isActive('/history') ? styles.active : ''}`}
           >
             <List size={18} />

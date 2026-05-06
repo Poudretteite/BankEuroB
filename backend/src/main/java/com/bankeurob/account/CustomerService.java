@@ -1,5 +1,6 @@
 package com.bankeurob.account;
 
+import com.bankeurob.account.dto.BlikPinRequest;
 import com.bankeurob.account.dto.UpdateCustomerRequest;
 import com.bankeurob.security.CustomerUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -33,5 +34,28 @@ public class CustomerService {
         if (request.getAddressCountry() != null) customer.setAddressCountry(request.getAddressCountry());
 
         return customerRepository.save(customer);
+    }
+
+    @Transactional
+    public void updateBlikPin(BlikPinRequest request, Authentication authentication) {
+        CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
+        Customer customer = customerRepository.findById(userDetails.getCustomerId())
+                .orElseThrow(() -> new RuntimeException("Konto nie znalezione"));
+
+        String newPin = request.getNewPin();
+        if (newPin == null || newPin.length() != 4 || !newPin.matches("\\d{4}")) {
+            throw new IllegalArgumentException("PIN musi składać się z 4 cyfr");
+        }
+
+        // Jeśli PIN już istnieje, wymagamy poprawnego starego PIN-u
+        if (customer.getBlikPin() != null) {
+            String currentPin = request.getCurrentPin();
+            if (currentPin == null || !currentPin.equals(customer.getBlikPin())) {
+                throw new IllegalArgumentException("Nieprawidłowy obecny PIN");
+            }
+        }
+
+        customer.setBlikPin(newPin);
+        customerRepository.save(customer);
     }
 }

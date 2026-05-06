@@ -1,0 +1,720 @@
+.blikPage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pageSubtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+/* ── Główna karta ───────────────────────────────────────────────────── */
+.blikCard {
+  padding: 32px;
+  background: var(--glass-bg);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Wspólny formularz ───────────────────────────────────────────────── */
+.blikForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.blikHeader {
+  text-align: center;
+  padding-bottom: 8px;
+}
+
+.blikLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.blikLogoIcon {
+  color: #ed1c24;
+  filter: drop-shadow(0 0 8px rgba(237, 28, 36, 0.3));
+}
+
+.blikLogoText {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #ed1c24, #ff6b35);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.blikSubtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   KROK 1 – Wyświetlanie kodu BLIK
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.codeDisplay {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.codeDigit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 72px;
+  background: linear-gradient(135deg, rgba(237, 28, 36, 0.12), rgba(255, 107, 53, 0.08));
+  border: 2px solid rgba(237, 28, 36, 0.3);
+  border-radius: 14px;
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: 'Courier New', monospace;
+  color: #ed1c24;
+  text-shadow: 0 0 20px rgba(237, 28, 36, 0.3);
+  animation: codePopIn 0.3s ease-out both;
+}
+
+.codeDigit:nth-child(1) { animation-delay: 0.0s; }
+.codeDigit:nth-child(2) { animation-delay: 0.05s; }
+.codeDigit:nth-child(3) { animation-delay: 0.1s; }
+.codeDigit:nth-child(4) { animation-delay: 0.15s; }
+.codeDigit:nth-child(5) { animation-delay: 0.2s; }
+.codeDigit:nth-child(6) { animation-delay: 0.25s; }
+
+@keyframes codePopIn {
+  0% {
+    transform: scale(0.5) translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ── Timer ───────────────────────────────────────────────────────────── */
+.codeTimer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 168, 255, 0.08);
+  border: 1px solid rgba(0, 168, 255, 0.2);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+.codeTimer strong {
+  color: var(--accent-blue);
+  font-family: monospace;
+  font-size: 1rem;
+}
+
+.codeTimerWarning {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.codeTimerWarning strong {
+  color: var(--error-color);
+}
+
+.timerWarning {
+  color: var(--error-color);
+  font-weight: 600;
+  font-size: 0.8rem;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Instrukcja ──────────────────────────────────────────────────────── */
+.instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.instructionStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.instructionNumber {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.instructionStep p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ── Przyciski kodu ──────────────────────────────────────────────────── */
+.codeActions {
+  display: flex;
+  justify-content: center;
+}
+
+.generateNewBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px dashed var(--glass-border);
+  color: var(--text-secondary);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.generateNewBtn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* ── Oczekiwanie na transakcję ──────────────────────────────────────── */
+.waitingIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--glass-border);
+  margin-top: 4px;
+}
+
+.waitingSpinner {
+  animation: spin 1.5s linear infinite;
+  color: var(--accent-blue);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   KROK 2 – Powiadomienie o transakcji
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.notificationBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--success-color);
+  animation: slideDown 0.4s ease-out;
+}
+
+.notificationIcon {
+  animation: bellRing 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes bellRing {
+  0% { transform: rotate(-15deg); }
+  100% { transform: rotate(15deg); }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Szczegóły transakcji ───────────────────────────────────────────── */
+.transactionDetails {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 20px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.txDetailRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.txDetailIcon {
+  color: var(--accent-blue);
+  flex-shrink: 0;
+}
+
+.txDetailLabel {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.txDetailValue {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.txDivider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 8px 0;
+}
+
+.txAmountRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0 4px;
+}
+
+.txAmountIcon {
+  color: var(--accent-gold);
+  flex-shrink: 0;
+}
+
+.txAmountValue {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.txCurrency {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ── Przyciski transakcji ────────────────────────────────────────────── */
+.confirmPinBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  background: linear-gradient(135deg, #ed1c24, #ff6b35) !important;
+  border: none !important;
+}
+
+.confirmPinBtn:hover {
+  background: linear-gradient(135deg, #d41a22, #e85a2a) !important;
+}
+
+.rejectBtn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--error-color);
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.rejectBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   KROK 3 – Wprowadzenie PIN
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.pinHeader {
+  text-align: center;
+}
+
+.pinIcon {
+  color: var(--accent-blue);
+  margin-bottom: 12px;
+}
+
+.pinTitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.pinSubtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.pinSummary {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.pinSummaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.pinSummaryLabel {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pinSummaryValue {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.pinSummaryAmount {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pinSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pinLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pinRow {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+
+.pinInput {
+  width: 52px;
+  height: 64px;
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  border: 2px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s ease;
+  caret-color: transparent;
+}
+
+.pinInput:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.pinFilled {
+  border-color: var(--success-color);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.confirmBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+}
+
+.backBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 8px 16px;
+  font-family: inherit;
+  transition: color 0.2s ease;
+}
+
+.backBtn:hover {
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Processing / Success / Error
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.statusScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.statusSpinner {
+  margin-bottom: 8px;
+}
+
+.spinnerIcon {
+  color: var(--accent-blue);
+  animation: spin 1s linear infinite;
+}
+
+.statusTitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.statusText {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.statusProgressBar {
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.statusProgressFill {
+  height: 100%;
+  width: 30%;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-gold));
+  border-radius: 2px;
+  animation: progressIndeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes progressIndeterminate {
+  0% { transform: translateX(-100%); width: 30%; }
+  50% { width: 60%; }
+  100% { transform: translateX(200%); width: 30%; }
+}
+
+/* ── Sukces ──────────────────────────────────────────────────────────── */
+.successIconWrapper {
+  margin-bottom: 8px;
+}
+
+.successIcon {
+  color: var(--success-color);
+  filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.4));
+  animation: successPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes successPop {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.successDetails {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 8px 0;
+}
+
+.successRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.successRow strong {
+  color: var(--text-primary);
+  font-family: monospace;
+}
+
+.newPaymentBtn {
+  margin-top: 8px;
+  min-width: 220px;
+}
+
+/* ── Błąd ────────────────────────────────────────────────────────────── */
+.errorIconWrapper {
+  margin-bottom: 8px;
+}
+
+.errorIcon {
+  color: var(--error-color);
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.4));
+  animation: errorShake 0.5s ease-in-out;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.errorActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.retryBtn {
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Informacje o BLIK
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.blikInfo {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.infoItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.infoIcon {
+  color: var(--accent-blue);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.infoItem strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.infoItem p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Responsywność
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 500px) {
+  .blikCard {
+    padding: 20px;
+  }
+
+  .codeDigit {
+    width: 44px;
+    height: 60px;
+    font-size: 1.6rem;
+  }
+
+  .codeDisplay {
+    gap: 8px;
+  }
+
+  .pinInput {
+    width: 44px;
+    height: 56px;
+    font-size: 1.5rem;
+  }
+
+  .pinRow {
+    gap: 8px;
+  }
+}

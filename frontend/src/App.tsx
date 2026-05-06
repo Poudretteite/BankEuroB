@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TransferPage } from './pages/TransferPage';
+import { BlikPage } from './pages/BlikPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { HistoryPage } from './pages/HistoryPage';
 
@@ -53,25 +54,35 @@ function App() {
             </PrivateRoute>
           } 
         />
-        <Route 
-          path="/transfer" 
+        <Route
+          path="/transfer"
           element={
             <PrivateRoute>
               <Layout>
                 <TransferPage />
               </Layout>
             </PrivateRoute>
-          } 
+          }
         />
-        <Route 
-          path="/history" 
+        <Route
+          path="/blik"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <BlikPage />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/history"
           element={
             <PrivateRoute>
               <Layout>
                 <HistoryPage />
               </Layout>
             </PrivateRoute>
-          } 
+          }
         />
         <Route 
           path="/settings" 
