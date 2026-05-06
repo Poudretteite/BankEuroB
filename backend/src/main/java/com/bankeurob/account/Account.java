@@ -11,7 +11,23 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "accounts")
+@Table(
+    name = "accounts",
+    indexes = {
+        // Pobieranie wszystkich kont danego klienta (dashboard)
+        @Index(name = "idx_accounts_customer_id",
+               columnList = "customer_id"),
+        // Filtrowanie po typie konta (STANDARD, JUNIOR, itp.)
+        @Index(name = "idx_accounts_type",
+               columnList = "account_type"),
+        // Wyszukiwanie aktywnych kont klienta (częste zapytanie)
+        @Index(name = "idx_accounts_customer_active",
+               columnList = "customer_id, is_active"),
+        // Relacja konto junior -> konto rodzica
+        @Index(name = "idx_accounts_parent_account",
+               columnList = "parent_account_id")
+    }
+)
 @Getter
 @Setter
 public class Account {

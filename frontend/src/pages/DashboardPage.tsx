@@ -15,7 +15,9 @@ import {
   TrendingUp,
   TrendingDown,
   Award,
-  CreditCard as CreditCardIcon
+  CreditCard as CreditCardIcon,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import {
   XAxis,
@@ -48,28 +50,28 @@ interface Transaction {
   currency: string;
   requestedAt: string;
   status: string;
+  transactionType: string;
 }
 
 const generateAnalyticsData = (transactions: Transaction[] | undefined, mainIban: string | undefined) => {
   if (!transactions || !mainIban) return [];
-  
+
   const data = [];
   const now = new Date();
-  
-  // Cofamy się o 5 miesięcy + bieżący = 6 miesięcy
+
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthName = d.toLocaleDateString('pl-PL', { month: 'short' });
     const year = d.getFullYear();
     const month = d.getMonth();
-    
+
     let income = 0;
     let expense = 0;
-    
+
     transactions.forEach(tx => {
       const txDate = new Date(tx.requestedAt);
-      // Jeśli transakcja była w tym miesiącu i roku
-      if (txDate.getFullYear() === year && txDate.getMonth() === month && tx.status !== 'FAILED') {
+      if (txDate.getFullYear() === year && txDate.getMonth() === month
+        && tx.status !== 'FAILED' && tx.status !== 'REJECTED') {
         if (tx.receiverIban === mainIban) {
           income += tx.amount;
         }
@@ -78,7 +80,7 @@ const generateAnalyticsData = (transactions: Transaction[] | undefined, mainIban
         }
       }
     });
-    
+
     data.push({
       name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
       Wpływy: parseFloat(income.toFixed(2)),
@@ -88,10 +90,57 @@ const generateAnalyticsData = (transactions: Transaction[] | undefined, mainIban
   return data;
 };
 
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'REJECTED':
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '3px',
+          background: 'rgba(231,76,60,0.15)', color: '#e74c3c',
+          padding: '2px 7px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600
+        }}>
+          <XCircle size={10} /> Odrzucono
+        </span>
+      );
+    case 'PENDING':
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '3px',
+          background: 'rgba(241,196,15,0.15)', color: '#f1c40f',
+          padding: '2px 7px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600
+        }}>
+          <AlertCircle size={10} /> Oczekuje
+        </span>
+      );
+    case 'PROCESSING':
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '3px',
+          background: 'rgba(0,168,255,0.15)', color: '#00a8ff',
+          padding: '2px 7px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600
+        }}>
+          Przetwarzanie
+        </span>
+      );
+    case 'FAILED':
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '3px',
+          background: 'rgba(231,76,60,0.15)', color: '#e74c3c',
+          padding: '2px 7px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600
+        }}>
+          Błąd
+        </span>
+      );
+    default:
+      return null; // COMPLETED — nie pokazujemy badge, żeby nie zaśmiecać
+  }
+};
+
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const [extCardStatus, setExtCardStatus] = useState<string | null>(null);
-  
+
   const handleIssueCardClick = async () => {
     try {
       setExtCardStatus('Łączenie z Card Provider...');
@@ -104,8 +153,6 @@ export const DashboardPage: React.FC = () => {
     } catch (err: any) {
       setExtCardStatus(`Błąd połączenia do serwera kart: ${err.response?.data?.error || err.message}`);
     }
-    
-    // Znika powiadomienie po 10 sek
     setTimeout(() => setExtCardStatus(null), 10000);
   };
 
@@ -126,12 +173,21 @@ export const DashboardPage: React.FC = () => {
       const response = await axiosClient.get<Transaction[]>(`/transfers?iban=${mainAccount.iban}`);
       return response.data;
     },
-    enabled: !!mainAccount?.iban
+    enabled: !!mainAccount?.iban,
+    refetchInterval: 15000, // odświeżaj co 15s żeby widzieć zmiany statusów
   });
 
   const chartData = useMemo(() => {
     return generateAnalyticsData(transactions, mainAccount?.iban);
   }, [transactions, mainAccount]);
+
+  // Sortowanie — zawsze najnowsze na górze, niezależnie od backendu
+  const sortedTransactions = useMemo(() => {
+    if (!transactions) return [];
+    return [...transactions].sort(
+      (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
+    );
+  }, [transactions]);
 
   if (accountsLoading) return <div className={styles.loader}>Synchronizacja systemu...</div>;
 
@@ -192,7 +248,7 @@ export const DashboardPage: React.FC = () => {
                   <Tooltip
                     contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '8px' }}
                     itemStyle={{ color: 'var(--text-primary)' }}
-                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                   <Bar dataKey="Wpływy" fill="var(--success-color)" radius={[4, 4, 0, 0]} />
@@ -211,13 +267,13 @@ export const DashboardPage: React.FC = () => {
           {/* Szybkie Akcje z Integracją Modułu Kart */}
           <div className={`glass-panel ${styles.quickActionsCard}`}>
             <h3 className={styles.cardTitle}>Szybki dostęp</h3>
-            
+
             {extCardStatus && (
               <div className={styles.integrationToast}>
                 {extCardStatus}
               </div>
             )}
-            
+
             <div className={styles.actionsGrid}>
               <Link to="/transfer" className={styles.actionBtn}>
                 <div className={styles.actionIcon}><Send size={20} /></div>
@@ -302,24 +358,43 @@ export const DashboardPage: React.FC = () => {
             <div className={styles.transactionsList}>
               {txLoading ? (
                 <div className={styles.loaderSmall}>Wczytywanie...</div>
-              ) : transactions && transactions.length > 0 ? (
-                transactions.slice(0, 4).map(tx => {
+              ) : sortedTransactions.length > 0 ? (
+                sortedTransactions.slice(0, 5).map(tx => {
                   const isOutgoing = tx.senderIban === mainAccount?.iban;
+                  const isRejected = tx.status === 'REJECTED' || tx.status === 'FAILED';
+                  const isPending = tx.status === 'PENDING';
+                  const badge = getStatusBadge(tx.status);
+
                   return (
-                    <div key={tx.id} className={styles.transactionItem}>
-                      <div className={`${styles.txIcon} ${isOutgoing ? styles.txOutgoing : styles.txIncoming}`}>
-                        {isOutgoing ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                    <div key={tx.id} className={styles.transactionItem} style={{ opacity: isRejected ? 0.65 : 1 }}>
+                      <div className={`${styles.txIcon} ${isRejected ? styles.txRejected : isOutgoing ? styles.txOutgoing : styles.txIncoming}`}>
+                        {isRejected
+                          ? <XCircle size={16} />
+                          : isPending
+                            ? <AlertCircle size={16} />
+                            : isOutgoing
+                              ? <ArrowUpRight size={16} />
+                              : <ArrowDownRight size={16} />
+                        }
                       </div>
 
                       <div className={styles.txDetails}>
-                        <div className={styles.txTitle}>{tx.title}</div>
+                        <div className={styles.txTitle} style={{ textDecoration: isRejected ? 'line-through' : 'none' }}>
+                          {tx.title}
+                        </div>
                         <div className={styles.txDate}>
                           {new Date(tx.requestedAt).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </div>
+                        {badge && <div style={{ marginTop: '3px' }}>{badge}</div>}
                       </div>
 
-                      <div className={`${styles.txAmount} ${isOutgoing ? styles.textOut : styles.textIn}`}>
-                        {isOutgoing ? '-' : '+'}{tx.amount.toFixed(2)} {tx.currency}
+                      <div className={`${styles.txAmount} ${isRejected ? styles.textRejected : isOutgoing ? styles.textOut : styles.textIn}`}>
+                        {isRejected
+                          ? <span style={{ textDecoration: 'line-through', color: 'var(--text-secondary)' }}>
+                              {isOutgoing ? '-' : '+'}{tx.amount.toFixed(2)} {tx.currency}
+                            </span>
+                          : `${isOutgoing ? '-' : '+'}${tx.amount.toFixed(2)} ${tx.currency}`
+                        }
                       </div>
                     </div>
                   );

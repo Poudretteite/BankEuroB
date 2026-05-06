@@ -130,7 +130,7 @@ public class TransferService {
             throw new AccessDeniedException("Brak uprawnień do tego konta");
         }
 
-        return transactionRepository.findBySenderIbanOrReceiverIban(iban, iban)
+        return transactionRepository.findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(iban, iban)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());

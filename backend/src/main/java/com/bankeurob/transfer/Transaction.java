@@ -13,7 +13,29 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "transactions")
+@Table(
+    name = "transactions",
+    indexes = {
+        // Historia transakcji dla danego konta nadawcy (najczęstsze zapytanie dashboardu)
+        @Index(name = "idx_transactions_sender_account_date",
+               columnList = "sender_account_id, requested_at DESC"),
+        // Wyszukiwanie po IBAN nadawcy
+        @Index(name = "idx_transactions_sender_iban",
+               columnList = "sender_iban"),
+        // Wyszukiwanie po IBAN odbiorcy
+        @Index(name = "idx_transactions_receiver_iban",
+               columnList = "receiver_iban"),
+        // Filtrowanie po statusie (np. PENDING, COMPLETED)
+        @Index(name = "idx_transactions_status",
+               columnList = "status"),
+        // Filtrowanie po typie transakcji (INTERNAL, SEPA, itp.)
+        @Index(name = "idx_transactions_type",
+               columnList = "transaction_type"),
+        // Sortowanie / filtrowanie po dacie żądania
+        @Index(name = "idx_transactions_requested_at",
+               columnList = "requested_at DESC")
+    }
+)
 @Getter
 @Setter
 public class Transaction {

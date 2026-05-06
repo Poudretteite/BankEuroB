@@ -11,5 +11,5 @@ import java.util.UUID;
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
     Optional<Transaction> findByReferenceNumber(String referenceNumber);
     List<Transaction> findBySenderAccountIdOrReceiverIban(UUID accountId, String recipientIban);
-    List<Transaction> findBySenderIbanOrReceiverIban(String senderIban, String receiverIban);
+    List<Transaction> findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(String senderIban, String receiverIban);
 }

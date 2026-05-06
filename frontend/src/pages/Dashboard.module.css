@@ -479,6 +479,16 @@
   color: var(--success-color);
 }
 
+.txRejected {
+  background: rgba(100, 100, 100, 0.1);
+  color: var(--text-secondary);
+}
+
+.textRejected {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}
+
 .txDetails {
   flex: 1;
   min-width: 0;
