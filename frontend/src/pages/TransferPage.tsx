@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,21 +22,18 @@ type TransferForm = z.infer<typeof transferSchema>;
 
 export const TransferPage: React.FC = () => {
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
   const [isSuccess, setIsSuccess] = useState(false);
-  const [accounts, setAccounts] = useState<any[]>([]);
 
-  const fetchAccounts = async () => {
-    try {
+  // 🔥 React Query z cachowaniem — współdzielone z DashboardPage i HistoryPage
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
       const res = await axiosClient.get('/accounts');
-      setAccounts(res.data);
-    } catch (err) {
-      console.error('Błąd pobierania kont', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
+      return res.data;
+    },
+    staleTime: 30000,
+  });
 
   const {
     register,
@@ -89,7 +87,8 @@ export const TransferPage: React.FC = () => {
       });
       setIsSuccess(true);
       reset({ transferType: 'INTERNAL', receiverIban: '', receiverName: '', title: '', amount: 0 });
-      fetchAccounts(); // Aktualizacja dostępnych środków po przelewie
+      // 🔥 Invalidate cache po przelewie — odświeży saldo na wszystkich stronach
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       setTimeout(() => setIsSuccess(false), 5000);
     } catch (err: any) {
       setError('root', {

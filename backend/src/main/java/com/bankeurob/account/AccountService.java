@@ -54,6 +54,12 @@ public class AccountService {
             throw new IllegalArgumentException("Email jest już zajęty");
         }
 
+        // Walidacja kodu kraju
+        String countryCode = request.getAddressCountry();
+        if (countryCode != null && !countryCode.isEmpty() && (countryCode.length() != 2 || !countryCode.matches("[A-Za-z]{2}"))) {
+            throw new IllegalArgumentException("Kod kraju musi być 2-znakowym kodem ISO (np. DE, PL, FR). Podano: " + countryCode);
+        }
+
         Customer child = new Customer();
         child.setEmail(request.getEmail());
         child.setPasswordHash(passwordEncoder.encode(request.getPassword()));
@@ -66,7 +72,7 @@ public class AccountService {
         child.setAddressCity(request.getAddressCity());
         child.setRole("JUNIOR");
         child.setParent(parent);
-        child.setAddressCountry(request.getAddressCountry() != null && !request.getAddressCountry().isEmpty() ? request.getAddressCountry() : parent.getAddressCountry());
+        child.setAddressCountry(countryCode != null && !countryCode.isEmpty() ? countryCode.toUpperCase() : parent.getAddressCountry());
         
         Customer savedChild = customerRepository.save(child);
 

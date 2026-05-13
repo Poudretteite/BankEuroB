@@ -31,7 +31,13 @@ public class CustomerService {
         if (request.getPhone() != null) customer.setPhone(request.getPhone());
         if (request.getAddressStreet() != null) customer.setAddressStreet(request.getAddressStreet());
         if (request.getAddressCity() != null) customer.setAddressCity(request.getAddressCity());
-        if (request.getAddressCountry() != null) customer.setAddressCountry(request.getAddressCountry());
+        if (request.getAddressCountry() != null) {
+            String countryCode = request.getAddressCountry();
+            if (countryCode.length() != 2 || !countryCode.matches("[A-Za-z]{2}")) {
+                throw new IllegalArgumentException("Kod kraju musi być 2-znakowym kodem ISO (np. DE, PL, FR). Podano: " + countryCode);
+            }
+            customer.setAddressCountry(countryCode.toUpperCase());
+        }
 
         return customerRepository.save(customer);
     }

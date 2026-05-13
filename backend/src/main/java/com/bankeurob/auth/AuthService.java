@@ -36,6 +36,12 @@ public class AuthService {
             throw new IllegalArgumentException("Email jest już zajęty: " + request.getEmail());
         }
 
+        // Walidacja kodu kraju (ISO 3166-1 alpha-2, dokładnie 2 znaki)
+        String countryCode = request.getAddressCountry();
+        if (countryCode != null && (countryCode.length() != 2 || !countryCode.matches("[A-Za-z]{2}"))) {
+            throw new IllegalArgumentException("Kod kraju musi być 2-znakowym kodem ISO (np. DE, PL, FR). Podano: " + countryCode);
+        }
+
         Customer customer = new Customer();
         customer.setEmail(request.getEmail());
         customer.setPasswordHash(passwordEncoder.encode(request.getPassword()));
@@ -45,7 +51,7 @@ public class AuthService {
         customer.setPhone(request.getPhone());
         customer.setAddressStreet(request.getAddressStreet());
         customer.setAddressCity(request.getAddressCity());
-        customer.setAddressCountry(request.getAddressCountry());
+        customer.setAddressCountry(countryCode != null ? countryCode.toUpperCase() : null);
         customer.setPesel(request.getPesel());
         customer.setRole("CUSTOMER");
 
@@ -54,8 +60,8 @@ public class AuthService {
         // Automatycznie utwórz konto w EUR
         Account account = new Account();
         account.setCustomer(saved);
-        String countryCode = request.getAddressCountry() != null ? request.getAddressCountry() : "DE";
-        account.setIban(generateIban(countryCode));
+        String ibanCountry = countryCode != null ? countryCode : "DE";
+        account.setIban(generateIban(ibanCountry));
         account.setAccountType("STANDARD");
         account.setCurrency("EUR");
         account.setBalance(BigDecimal.ZERO);

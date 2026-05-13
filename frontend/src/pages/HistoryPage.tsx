@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -129,11 +130,6 @@ const formatDateGroup = (dateStr: string): string => {
 // ─────────────── Component ───────────────
 
 export const HistoryPage: React.FC = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [myIban, setMyIban] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Filters & sorting
   const [sortBy, setSortBy] = useState<SortOption>('date_desc');
   const [startDate, setStartDate] = useState<string>('');
@@ -143,25 +139,28 @@ export const HistoryPage: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
   const [showFilters, setShowFilters] = useState(true);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const accountsRes = await axiosClient.get('/accounts');
-        if (accountsRes.data && accountsRes.data.length > 0) {
-          const mainIban = accountsRes.data[0].iban;
-          setMyIban(mainIban);
-          const txRes = await axiosClient.get(`/transfers?iban=${mainIban}`);
-          setTransactions(txRes.data);
-        }
-      } catch (err) {
-        console.error('Błąd pobierania historii', err);
-        setError('Nie udało się pobrać historii transakcji.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchHistory();
-  }, []);
+  // 🔥 React Query — automatyczne cachowanie, deduplikacja, refetch
+  const { data: accountsData } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const res = await axiosClient.get('/accounts');
+      return res.data;
+    },
+    staleTime: 30000, // nie odświeżaj przez 30s
+  });
+
+  const mainIban: string = accountsData?.[0]?.iban ?? '';
+
+  const { data: transactions = [], isLoading, error } = useQuery({
+    queryKey: ['transactions', mainIban],
+    queryFn: async () => {
+      if (!mainIban) return [];
+      const res = await axiosClient.get(`/transfers?iban=${mainIban}`);
+      return res.data as Transaction[];
+    },
+    enabled: !!mainIban,
+    staleTime: 10000, // cache na 10s
+  });
 
   // Active filters count (for badge)
   const activeFilterCount = useMemo(() => {
@@ -179,8 +178,8 @@ export const HistoryPage: React.FC = () => {
     let result = [...transactions];
 
     // Direction filter
-    if (dirFilter === 'INCOME') result = result.filter(tx => tx.receiverIban === myIban);
-    if (dirFilter === 'EXPENSE') result = result.filter(tx => tx.senderIban === myIban);
+    if (dirFilter === 'INCOME') result = result.filter(tx => tx.receiverIban === mainIban);
+    if (dirFilter === 'EXPENSE') result = result.filter(tx => tx.senderIban === mainIban);
 
     // Status filter
     if (statusFilter === 'COMPLETED') result = result.filter(tx => tx.status === 'COMPLETED');
@@ -215,7 +214,7 @@ export const HistoryPage: React.FC = () => {
     });
 
     return result;
-  }, [transactions, myIban, dirFilter, statusFilter, typeFilter, sortBy, startDate, endDate]);
+  }, [transactions, mainIban, dirFilter, statusFilter, typeFilter, sortBy, startDate, endDate]);
 
   // Group by date (only when sorting by date)
   const groupedTransactions = useMemo(() => {
@@ -241,7 +240,7 @@ export const HistoryPage: React.FC = () => {
   // ─── Sub-components ───
 
   const renderTransaction = (tx: Transaction, idx: number, arr: Transaction[]) => {
-    const isIncome = tx.receiverIban === myIban;
+    const isIncome = tx.receiverIban === mainIban;
     const isRejected = tx.status === 'REJECTED' || tx.status === 'FAILED';
     const isPending = tx.status === 'PENDING';
     const dateObj = new Date(tx.requestedAt);
@@ -383,7 +382,7 @@ export const HistoryPage: React.FC = () => {
   if (error) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#e74c3c' }}>
-        {error}
+        Nie udało się pobrać historii transakcji.
       </div>
     );
   }
