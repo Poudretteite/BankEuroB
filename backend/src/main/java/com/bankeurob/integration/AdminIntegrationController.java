@@ -3,6 +3,9 @@ package com.bankeurob.integration;
 import com.bankeurob.integration.sepa.batch.SepaBatchClient;
 import com.bankeurob.integration.sepa.instant.SepaInstantClient;
 import com.bankeurob.integration.sepa.instant.dto.TransferStatusResponse;
+import com.bankeurob.integration.swift.SwiftServiceClient;
+import com.bankeurob.integration.swift.dto.SwiftCancelResponse;
+import com.bankeurob.integration.swift.dto.SwiftMessageResponse;
 import com.bankeurob.integration.target.TargetServiceClient;
 import com.bankeurob.integration.target.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,19 +35,21 @@ import java.util.Map;
  *   <li>Zastrzyk płynności w TARGET</li>
  *   <li>Podgląd sesji SEPA Batch</li>
  *   <li>Status przelewów SEPA Instant</li>
+ *   <li>Wysyłanie i anulowanie komunikatów SWIFT</li>
  * </ul>
  */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Admin Integration", description = "Zarządzanie integracjami zewnętrznymi (TARGET RTGS, SEPA Batch, SEPA Instant)")
+@Tag(name = "Admin Integration", description = "Zarządzanie integracjami zewnętrznymi (TARGET RTGS, SEPA Batch, SEPA Instant, SWIFT)")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminIntegrationController {
 
     private final TargetServiceClient targetClient;
     private final SepaBatchClient sepaBatchClient;
     private final SepaInstantClient sepaInstantClient;
+    private final SwiftServiceClient swiftClient;
 
     // ─────────────────────────────────────────────────
     // TARGET – Banki
@@ -303,6 +308,57 @@ public class AdminIntegrationController {
                 "SEPA Instant Service jest wyłączony. Uruchom serwis na porcie 8003."));
         } catch (Exception e) {
             log.error("Błąd pobierania listy SEPA Instant: {}", e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // SWIFT Middleware – Komunikaty
+    // ─────────────────────────────────────────────────
+
+    @PostMapping("/swift/message")
+    @Operation(summary = "Wysłanie komunikatu SWIFT (XML)",
+               description = "Wysyła komunikat XML w formacie pacs.008.001.08 do SWIFT Middleware. " +
+                             "Wymaga podania treści XML w body żądania (Content-Type: application/xml).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Komunikat SWIFT przyjęty przez middleware",
+            content = @Content(examples = @ExampleObject(value = "{\"status\":\"accepted\",\"message_id\":\"MSG-1001\",\"uetr\":\"11111111-1111-4111-8111-111111111111\",\"receiver_bank\":\"Bank UK 1\",\"route\":[\"PLBKPL01XXX\",\"UKBKGB01XXX\"],\"estimated_seconds\":1.0,\"cancel_window_seconds\":5}"))),
+        @ApiResponse(responseCode = "503", description = "SWIFT Middleware wyłączony")
+    })
+    public ResponseEntity<?> sendSwiftMessage(@RequestBody String xmlMessage) {
+        log.info("Wysyłanie komunikatu SWIFT do middleware");
+        try {
+            SwiftMessageResponse response = swiftClient.submitSwiftMessage(xmlMessage);
+            return ResponseEntity.ok(response);
+        } catch (ResourceAccessException e) {
+            return ResponseEntity.status(503).body(Map.of("error",
+                "SWIFT Middleware jest wyłączony. Uruchom serwis na porcie 3000."));
+        } catch (Exception e) {
+            log.error("Błąd wysyłania komunikatu SWIFT: {}", e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/swift/cancel/{uetr}")
+    @Operation(summary = "Anulowanie komunikatu SWIFT",
+               description = "Anuluje oczekujący komunikat SWIFT w middleware po UETR. " +
+                             "Możliwe tylko w oknie anulowania (domyślnie 5 sekund).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Komunikat anulowany",
+            content = @Content(examples = @ExampleObject(value = "{\"status\":\"cancelled\",\"uetr\":\"11111111-1111-4111-8111-111111111111\"}"))),
+        @ApiResponse(responseCode = "404", description = "Nie znaleziono lub okno anulowania zamknięte"),
+        @ApiResponse(responseCode = "503", description = "SWIFT Middleware wyłączony")
+    })
+    public ResponseEntity<?> cancelSwiftMessage(@PathVariable String uetr) {
+        log.info("Anulowanie komunikatu SWIFT: UETR={}", uetr);
+        try {
+            SwiftCancelResponse response = swiftClient.cancelSwiftMessage(uetr);
+            return ResponseEntity.ok(response);
+        } catch (ResourceAccessException e) {
+            return ResponseEntity.status(503).body(Map.of("error",
+                "SWIFT Middleware jest wyłączony. Uruchom serwis na porcie 3000."));
+        } catch (Exception e) {
+            log.error("Błąd anulowania komunikatu SWIFT {}: {}", uetr, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }

@@ -5,17 +5,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Send, FileText, Hash, DollarSign, Zap, Clock, Building2, ShieldCheck } from 'lucide-react';
+import { Send, FileText, Hash, DollarSign, Zap, Clock, Building2, ShieldCheck, Globe } from 'lucide-react';
 import styles from './Transfer.module.css';
 import axiosClient from '../api/axiosClient';
 import { useAuthStore } from '../store/useAuthStore';
 
 const transferSchema = z.object({
-  transferType: z.enum(['INTERNAL', 'SEPA_SCT', 'SEPA_INSTANT', 'RTGS_TARGET2']),
+  transferType: z.enum(['INTERNAL', 'SEPA_SCT', 'SEPA_INSTANT', 'RTGS_TARGET2', 'SWIFT']),
   receiverIban: z.string().min(15, 'Numer IBAN jest za krótki'),
   receiverName: z.string().min(2, 'Podaj nazwę odbiorcy'),
   title: z.string().min(1, 'Tytuł przelewu jest wymagany'),
   amount: z.coerce.number().positive('Kwota musi być większa od zera'),
+  chargeBearer: z.enum(['DEBT', 'CRED', 'SHAR', 'SLEV']).optional(),
 });
 
 type TransferForm = z.infer<typeof transferSchema>;
@@ -57,6 +58,7 @@ export const TransferPage: React.FC = () => {
     switch(selectedType) {
       case 'SEPA_INSTANT': return 0.50;
       case 'RTGS_TARGET2': return 5.00;
+      case 'SWIFT': return 8.00;
       default: return 0.00;
     }
   };
@@ -102,6 +104,7 @@ export const TransferPage: React.FC = () => {
     switch(selectedType) {
       case 'SEPA_INSTANT': return 'Opłata: 0.50 EUR';
       case 'RTGS_TARGET2': return 'Opłata: 5.00 EUR';
+      case 'SWIFT': return 'Opłata: 8.00 EUR';
       default: return 'Brak opłat (0.00 EUR)';
     }
   };
@@ -112,6 +115,7 @@ export const TransferPage: React.FC = () => {
       case 'SEPA_INSTANT': return 'W kilka sekund (24/7)';
       case 'RTGS_TARGET2': return 'Dziś (pilne)';
       case 'SEPA_SCT': return 'Kolejny dzień roboczy';
+      case 'SWIFT': return '1-3 dni robocze (międzynarodowy)';
       default: return '';
     }
   };
@@ -204,11 +208,11 @@ export const TransferPage: React.FC = () => {
                   </div>
 
                   {/* TARGET2 */}
-                  <div 
+                  <div
                     onClick={() => field.onChange('RTGS_TARGET2')}
-                    style={{ 
-                      padding: '16px', 
-                      borderRadius: '12px', 
+                    style={{
+                      padding: '16px',
+                      borderRadius: '12px',
                       border: field.value === 'RTGS_TARGET2' ? '2px solid #e74c3c' : '1px solid var(--glass-border)',
                       background: field.value === 'RTGS_TARGET2' ? 'rgba(231, 76, 60, 0.1)' : 'rgba(255,255,255,0.02)',
                       cursor: 'pointer',
@@ -222,6 +226,25 @@ export const TransferPage: React.FC = () => {
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Wysokie kwoty (5.00 EUR)</div>
                   </div>
 
+                  {/* SWIFT */}
+                  <div
+                    onClick={() => field.onChange('SWIFT')}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '12px',
+                      border: field.value === 'SWIFT' ? '2px solid #9b59b6' : '1px solid var(--glass-border)',
+                      background: field.value === 'SWIFT' ? 'rgba(155, 89, 182, 0.1)' : 'rgba(255,255,255,0.02)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <Globe size={18} color={field.value === 'SWIFT' ? '#9b59b6' : 'var(--text-secondary)'} />
+                      <strong style={{ fontSize: '0.95rem' }}>SWIFT</strong>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Międzynarodowy (8.00 EUR)</div>
+                  </div>
+
                 </div>
               )}
             />
@@ -231,6 +254,46 @@ export const TransferPage: React.FC = () => {
             <span style={{ color: 'var(--text-secondary)' }}>Czas realizacji: <strong style={{ color: 'var(--text-primary)' }}>{getDeliveryText()}</strong></span>
             <span style={{ color: 'var(--text-secondary)' }}>{getFeeText()}</span>
           </div>
+
+          {/* Charge Bearer — only for SWIFT */}
+          {selectedType === 'SWIFT' && (
+            <Controller
+              name="chargeBearer"
+              control={control}
+              render={({ field }) => (
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{ display: 'block', marginBottom: '12px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    Pokrycie kosztów SWIFT (ChrgBr)
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {[
+                      { value: 'DEBT', label: 'DEBT', desc: 'Nadawca płaci wszystko' },
+                      { value: 'CRED', label: 'CRED', desc: 'Odbiorca płaci wszystko' },
+                      { value: 'SHAR', label: 'SHAR', desc: 'Koszty dzielone' },
+                      { value: 'SLEV', label: 'SLEV', desc: 'Zgodnie z umową' },
+                    ].map(opt => (
+                      <div
+                        key={opt.value}
+                        onClick={() => field.onChange(opt.value)}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: '8px',
+                          border: field.value === opt.value ? '2px solid #9b59b6' : '1px solid var(--glass-border)',
+                          background: field.value === opt.value ? 'rgba(155, 89, 182, 0.1)' : 'rgba(255,255,255,0.02)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{opt.label}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{opt.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            />
+          )}
 
           <div className={styles.inputGroup}>
             <Input

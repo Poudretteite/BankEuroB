@@ -4,6 +4,9 @@ import com.bankeurob.account.Account;
 import com.bankeurob.account.AccountRepository;
 import com.bankeurob.integration.sepa.batch.SepaBatchClient;
 import com.bankeurob.integration.sepa.instant.SepaInstantClient;
+import com.bankeurob.integration.swift.SwiftServiceClient;
+import com.bankeurob.integration.swift.SwiftXmlGenerator;
+import com.bankeurob.integration.swift.dto.SwiftMessageResponse;
 import com.bankeurob.integration.target.TargetServiceClient;
 import com.bankeurob.integration.target.dto.SettlementRequest;
 import com.bankeurob.integration.target.dto.SettlementResponse;
@@ -34,6 +37,8 @@ public class TransferService {
     private final TargetServiceClient targetClient;
     private final SepaBatchClient sepaBatchClient;
     private final SepaInstantClient sepaInstantClient;
+    private final SwiftServiceClient swiftClient;
+    private final SwiftXmlGenerator swiftXmlGenerator;
     private final Pain001Generator pain001Generator;
 
     @Transactional
@@ -136,10 +141,10 @@ public class TransferService {
             // ─────────────────────────────────────────────────
 
             try {
-                if ("SEPA_SCT".equals(request.getTransferType()) || "SWIFT".equals(request.getTransferType())) {
-                    // Rozliczenie przez TARGET (RTGS) dla SEPA SCT i SWIFT
-                    log.info("Inicjowanie settlement TARGET dla przelewu {} typu {}",
-                            transaction.getReferenceNumber(), request.getTransferType());
+                if ("SEPA_SCT".equals(request.getTransferType())) {
+                    // Rozliczenie przez TARGET (RTGS) dla SEPA SCT
+                    log.info("Inicjowanie settlement TARGET dla przelewu {} typu SEPA_SCT",
+                            transaction.getReferenceNumber());
 
                     SettlementResponse settlement = targetClient.settlePayment(new SettlementRequest(
                             transaction.getReferenceNumber(),
@@ -160,6 +165,28 @@ public class TransferService {
                         log.info("TARGET settlement udany dla {}", transaction.getReferenceNumber());
                     } else {
                         log.warn("TARGET settlement status: {} dla {}", settlement.getStatus(), transaction.getReferenceNumber());
+                        transaction.setStatus("PROCESSING");
+                    }
+
+                } else if ("SWIFT".equals(request.getTransferType())) {
+                    // Przelew SWIFT przez SWIFT Middleware (SWIFT-Aplikacje-Biznesowe)
+                    log.info("Inicjowanie przelewu SWIFT przez SWIFT Middleware dla {}",
+                            transaction.getReferenceNumber());
+
+                    String xml = swiftXmlGenerator.generate(request, senderAccount);
+                    SwiftMessageResponse swiftResponse = swiftClient.submitSwiftMessage(xml);
+
+                    transaction.setExternalMessageId(swiftResponse.getUetr());
+
+                    if ("accepted".equalsIgnoreCase(swiftResponse.getStatus())) {
+                        transaction.setStatus("PROCESSING");
+                        log.info("SWIFT komunikat przyjęty: UETR={}, trasa={}, ETA={}s",
+                                swiftResponse.getUetr(),
+                                swiftResponse.getRoute(),
+                                swiftResponse.getEstimatedSeconds());
+                    } else {
+                        log.warn("SWIFT Middleware status: {} dla {}", swiftResponse.getStatus(),
+                                transaction.getReferenceNumber());
                         transaction.setStatus("PROCESSING");
                     }
 
@@ -259,9 +286,9 @@ public class TransferService {
             });
         }
 
-        // Dla przelewów międzybankowych Juniora — wyślij do TARGET
+        // Dla przelewów międzybankowych Juniora — wyślij do zewnętrznego systemu
         try {
-            if ("SEPA_SCT".equals(transaction.getTransactionType()) || "SWIFT".equals(transaction.getTransactionType())) {
+            if ("SEPA_SCT".equals(transaction.getTransactionType())) {
                 SettlementResponse settlement = targetClient.settlePayment(new SettlementRequest(
                         transaction.getReferenceNumber(),
                         senderAccount.getBic(),
@@ -272,6 +299,20 @@ public class TransferService {
                         transaction.getTransactionType()
                 ));
                 transaction.setExternalMessageId(settlement.getTransactionId());
+            } else if ("SWIFT".equals(transaction.getTransactionType())) {
+                // Przelew SWIFT Juniora przez SWIFT Middleware
+                TransferRequest dummyRequest = new TransferRequest();
+                dummyRequest.setSenderIban(transaction.getSenderIban());
+                dummyRequest.setReceiverIban(transaction.getReceiverIban());
+                dummyRequest.setReceiverName(transaction.getReceiverName());
+                dummyRequest.setReceiverBic(transaction.getReceiverBic());
+                dummyRequest.setAmount(transaction.getAmount());
+                dummyRequest.setTitle(transaction.getTitle());
+                dummyRequest.setTransferType(transaction.getTransactionType());
+
+                String xml = swiftXmlGenerator.generate(dummyRequest, senderAccount);
+                SwiftMessageResponse swiftResponse = swiftClient.submitSwiftMessage(xml);
+                transaction.setExternalMessageId(swiftResponse.getUetr());
             } else if ("SEPA_INSTANT".equals(transaction.getTransactionType())) {
                 // Dla Juniora tworzymy uproszczony transfer request
                 TransferRequest dummyRequest = new TransferRequest();
@@ -298,7 +339,7 @@ public class TransferService {
             throw new RuntimeException("Nie udało się przetworzyć przelewu przez system zewnętrzny: " + e.getMessage());
         }
 
-        if ("SEPA_SCT".equals(transaction.getTransactionType())) {
+        if ("SEPA_SCT".equals(transaction.getTransactionType()) || "SWIFT".equals(transaction.getTransactionType())) {
             transaction.setStatus("PROCESSING");
         } else {
             transaction.setStatus("COMPLETED");

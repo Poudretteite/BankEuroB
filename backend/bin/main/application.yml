@@ -87,3 +87,9 @@ integration:
       base-url: "http://localhost:8003"
       connect-timeout: 5000
       read-timeout: 10000
+  swift:
+    base-url: "http://localhost:3000"
+    client-id: "test-client"
+    client-secret: "test-secret"
+    connect-timeout: 5000
+    read-timeout: 15000

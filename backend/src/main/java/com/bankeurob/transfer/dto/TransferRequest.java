@@ -30,4 +30,16 @@ public class TransferRequest {
 
     // INTERNAL, SEPA_SCT, SEPA_INSTANT, SWIFT
     private String transferType = "INTERNAL";
+
+    /**
+     * Charge Bearer (ChrgBr) – określa kto ponosi opłaty za przelew SWIFT.
+     * <ul>
+     *   <li>DEBT – płaci nadawca (debitor)</li>
+     *   <li>CRED – płaci odbiorca (kredytor)</li>
+     *   <li>SHAR – koszty dzielone (domyślnie)</li>
+     *   <li>SLEV – zasady opłat ustalane przez schemat usługi</li>
+     * </ul>
+     * Pole wykorzystywane tylko dla przelewów typu SWIFT.
+     */
+    private String chargeBearer = "SHAR";
 }
