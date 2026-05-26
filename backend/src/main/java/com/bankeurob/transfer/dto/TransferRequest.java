@@ -17,6 +17,9 @@ public class TransferRequest {
     @NotBlank(message = "Nazwa odbiorcy jest wymagana")
     private String receiverName;
 
+    /** BIC/SWIFT banku odbiorcy – wymagane dla przelewów SEPA i SWIFT */
+    private String receiverBic;
+
     @NotNull(message = "Kwota jest wymagana")
     @Positive(message = "Kwota musi być dodatnia")
     @DecimalMax(value = "100000.00", message = "Kwota nie może przekraczać 100 000 EUR")

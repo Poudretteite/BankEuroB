@@ -71,3 +71,19 @@ app:
     bic: "BKEUDEBBXXX"
     iban-country-prefix: "DE"
     swift-code: "BKEUDEBBXXX"
+
+# ─── Integracja z zewnętrznymi systemami ──────────────────────────
+integration:
+  target:
+    base-url: "http://localhost:8001"
+    connect-timeout: 5000
+    read-timeout: 10000
+  sepa:
+    batch:
+      base-url: "http://localhost:8002"
+      connect-timeout: 5000
+      read-timeout: 30000
+    instant:
+      base-url: "http://localhost:8003"
+      connect-timeout: 5000
+      read-timeout: 10000

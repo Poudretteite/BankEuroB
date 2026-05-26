@@ -39,6 +39,9 @@ import java.util.Map;
                         * **BLIK** – zarządzanie PIN-em BLIK
                         * **Karty płatnicze** – integracja z zewnętrznym systemem wydawania kart
                         * **AML & Monitoring** – wykrywanie podejrzanych transakcji (RabbitMQ)
+                        * **TARGET RTGS** – integracja z centralnym systemem rozliczeń międzybankowych
+                        * **SEPA Batch** – rozliczenia batchowe i multilateral netting
+                        * **SEPA Instant** – przelewy natychmiastowe w standardzie ISO 20022
                         
                         ---
                         **Autoryzacja:** Większość endpointów wymaga tokena JWT w nagłówku `Authorization: Bearer <token>`.
@@ -55,8 +58,7 @@ import java.util.Map;
                 )
         ),
         servers = {
-                @Server(url = "http://localhost:8080", description = "Lokalne środowisko deweloperskie"),
-                @Server(url = "https://api.bankeurob.eu", description = "Środowisko produkcyjne")
+                @Server(url = "http://localhost:8080", description = "Lokalne środowisko deweloperskie")
         }
 )
 @SecurityScheme(
@@ -230,6 +232,9 @@ public class OpenApiConfig {
                     .addProperties("title", new StringSchema()
                             .description("Tytuł przelewu (max 140 znaków)")
                             .example("Faktura nr 123/2026"))
+                    .addProperties("receiverBic", new StringSchema()
+                            .description("BIC/SWIFT banku odbiorcy – wymagane dla przelewów SEPA i SWIFT")
+                            .example("BKEUDEBBXXX"))
                     .addProperties("transferType", new StringSchema()
                             .description("""
                                     Typ przelewu:
@@ -447,6 +452,208 @@ public class OpenApiConfig {
                     .addProperties("createdAt", new DateTimeSchema()
                             .description("Data próby logowania")
                             .example("2026-05-12T14:30:00Z"))
+            );
+
+            // ─────────────────────────────────────────────────
+            // BankCreateRequest (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("BankCreateRequest", new Schema<>()
+                    .type("object")
+                    .description("Dane do rejestracji banku w systemie TARGET RTGS")
+                    .addProperties("bic", new StringSchema()
+                            .description("Kod BIC/SWIFT banku")
+                            .example("BKEBPLPW"))
+                    .addProperties("name", new StringSchema()
+                            .description("Nazwa banku")
+                            .example("BankEuroB"))
+                    .required(List.of("bic", "name"))
+            );
+
+            // ─────────────────────────────────────────────────
+            // BankResponse (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("BankResponse", new Schema<>()
+                    .type("object")
+                    .description("Podstawowe informacje o banku zarejestrowanym w TARGET")
+                    .addProperties("id", new IntegerSchema()
+                            .description("ID banku w systemie TARGET")
+                            .example(1))
+                    .addProperties("bic", new StringSchema()
+                            .description("Kod BIC/SWIFT")
+                            .example("BKEBPLPW"))
+                    .addProperties("name", new StringSchema()
+                            .description("Nazwa banku")
+                            .example("BankEuroB"))
+                    .addProperties("is_blocked", new BooleanSchema()
+                            .description("Czy bank jest zablokowany")
+                            .example(false))
+                    .addProperties("created_at", new DateTimeSchema()
+                            .description("Data rejestracji w TARGET")
+                            .example("2026-05-26T12:00:00Z"))
+            );
+
+            // ─────────────────────────────────────────────────
+            // BankDetailResponse (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("BankDetailResponse", new Schema<>()
+                    .type("object")
+                    .description("Szczegółowe informacje o banku w TARGET z listą kont settlement")
+                    .addProperties("id", new IntegerSchema()
+                            .description("ID banku")
+                            .example(1))
+                    .addProperties("bic", new StringSchema()
+                            .description("Kod BIC/SWIFT")
+                            .example("BKEBPLPW"))
+                    .addProperties("name", new StringSchema()
+                            .description("Nazwa banku")
+                            .example("BankEuroB"))
+                    .addProperties("is_blocked", new BooleanSchema()
+                            .description("Czy bank jest zablokowany")
+                            .example(false))
+                    .addProperties("created_at", new DateTimeSchema()
+                            .description("Data rejestracji")
+                            .example("2026-05-26T12:00:00Z"))
+                    .addProperties("settlement_accounts", new Schema<>()
+                            .type("array")
+                            .description("Lista kont settlement banku")
+                            .items(new Schema<>().$ref("#/components/schemas/SettlementAccountResponse")))
+            );
+
+            // ─────────────────────────────────────────────────
+            // SettlementAccountResponse (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("SettlementAccountResponse", new Schema<>()
+                    .type("object")
+                    .description("Konto settlement banku w systemie TARGET")
+                    .addProperties("id", new IntegerSchema()
+                            .description("ID konta settlement")
+                            .example(1))
+                    .addProperties("bank_id", new IntegerSchema()
+                            .description("ID banku")
+                            .example(1))
+                    .addProperties("currency", new StringSchema()
+                            .description("Waluta (ISO 4217)")
+                            .example("EUR"))
+                    .addProperties("balance", new NumberSchema()
+                            .description("Aktualne saldo")
+                            .example(new BigDecimal("10000000.00")))
+                    .addProperties("available_balance", new NumberSchema()
+                            .description("Dostępne środki")
+                            .example(new BigDecimal("9500000.00")))
+                    .addProperties("limit_debt", new NumberSchema()
+                            .description("Limit zadłużenia (debet)")
+                            .example(new BigDecimal("500000.00")))
+            );
+
+            // ─────────────────────────────────────────────────
+            // SettlementRequest (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("SettlementRequest", new Schema<>()
+                    .type("object")
+                    .description("Żądanie rozliczenia płatności międzybankowej w TARGET RTGS")
+                    .addProperties("transaction_id", new StringSchema()
+                            .description("ID transakcji (referencja)")
+                            .example("BKEU-20260526-000001"))
+                    .addProperties("sender_bic", new StringSchema()
+                            .description("BIC nadawcy")
+                            .example("BKEBPLPW"))
+                    .addProperties("receiver_bic", new StringSchema()
+                            .description("BIC odbiorcy")
+                            .example("DEUTDEFFXXX"))
+                    .addProperties("amount", new NumberSchema()
+                            .description("Kwota rozliczenia")
+                            .example(new BigDecimal("2500.00")))
+                    .addProperties("currency", new StringSchema()
+                            .description("Waluta (ISO 4217)")
+                            .example("EUR"))
+                    .addProperties("description", new StringSchema()
+                            .description("Opis transakcji")
+                            .example("Faktura nr 123/2026"))
+                    .addProperties("service", new StringSchema()
+                            .description("Typ usługi (SEPA_SCT, SWIFT)")
+                            .example("SEPA_SCT"))
+                    .required(List.of("transaction_id", "sender_bic", "receiver_bic", "amount", "currency"))
+            );
+
+            // ─────────────────────────────────────────────────
+            // SettlementResponse (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("SettlementResponse", new Schema<>()
+                    .type("object")
+                    .description("Odpowiedź z systemu TARGET po rozliczeniu płatności")
+                    .addProperties("transaction_id", new StringSchema()
+                            .description("ID transakcji w TARGET")
+                            .example("BKEU-20260526-000001"))
+                    .addProperties("status", new StringSchema()
+                            .description("Status rozliczenia (SETTLED, COMPLETED, FAILED)")
+                            .example("SETTLED"))
+                    .addProperties("settled_at", new DateTimeSchema()
+                            .description("Data rozliczenia")
+                            .example("2026-05-26T12:00:05Z"))
+                    .addProperties("sender_balance", new NumberSchema()
+                            .description("Saldo nadawcy po rozliczeniu")
+                            .example(new BigDecimal("9750000.00")))
+                    .addProperties("receiver_balance", new NumberSchema()
+                            .description("Saldo odbiorcy po rozliczeniu")
+                            .example(new BigDecimal("10250000.00")))
+            );
+
+            // ─────────────────────────────────────────────────
+            // LiquidityInjectionRequest (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("LiquidityInjectionRequest", new Schema<>()
+                    .type("object")
+                    .description("Żądanie zastrzyku płynności w systemie TARGET")
+                    .addProperties("bank_bic", new StringSchema()
+                            .description("BIC banku")
+                            .example("BKEBPLPW"))
+                    .addProperties("amount", new NumberSchema()
+                            .description("Kwota zastrzyku")
+                            .example(new BigDecimal("1000000.00")))
+                    .addProperties("currency", new StringSchema()
+                            .description("Waluta (ISO 4217)")
+                            .example("EUR"))
+                    .required(List.of("bank_bic", "amount", "currency"))
+            );
+
+            // ─────────────────────────────────────────────────
+            // LiquidityInjectionResponse (TARGET)
+            // ─────────────────────────────────────────────────
+            schemas.put("LiquidityInjectionResponse", new Schema<>()
+                    .type("object")
+                    .description("Odpowiedź po wykonaniu zastrzyku płynności")
+                    .addProperties("transfer_id", new StringSchema()
+                            .description("ID transferu płynności")
+                            .example("LIQ-20260526-0001"))
+                    .addProperties("bank_bic", new StringSchema()
+                            .description("BIC banku")
+                            .example("BKEBPLPW"))
+                    .addProperties("amount", new NumberSchema()
+                            .description("Kwota zastrzyku")
+                            .example(new BigDecimal("1000000.00")))
+                    .addProperties("new_balance", new NumberSchema()
+                            .description("Nowe saldo konta settlement")
+                            .example(new BigDecimal("2500000.00")))
+            );
+
+            // ─────────────────────────────────────────────────
+            // TransferStatusResponse (SEPA Instant)
+            // ─────────────────────────────────────────────────
+            schemas.put("TransferStatusResponse", new Schema<>()
+                    .type("object")
+                    .description("Status przelewu natychmiastowego w SEPA Instant Service")
+                    .addProperties("transfer_id", new StringSchema()
+                            .description("ID przelewu")
+                            .example("INST-20260526-0001"))
+                    .addProperties("status", new StringSchema()
+                            .description("Status (COMPLETED, PENDING, FAILED)")
+                            .example("COMPLETED"))
+                    .addProperties("processed_at", new DateTimeSchema()
+                            .description("Data przetworzenia")
+                            .example("2026-05-26T12:00:00Z"))
+                    .addProperties("error_message", new StringSchema()
+                            .description("Komunikat błędu (jeśli status=FAILED)")
+                            .example(null))
             );
 
             // ─────────────────────────────────────────────────

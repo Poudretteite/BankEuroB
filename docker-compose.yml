@@ -112,6 +112,51 @@ services:
     profiles:
       - full  # uruchamiaj tylko gdy frontend już istnieje
 
+  # ─────────────────────────────────────────────────
+  # TARGET RTGS – Centralny system rozliczeń międzybankowych
+  # ─────────────────────────────────────────────────
+  target-service:
+    image: python:3.12-slim
+    container_name: bankeurob-target
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    networks:
+      - bankeurob-net
+    profiles:
+      - full
+    # Uwaga: wymaga zewnętrznego obrazu lub zbudowania z osobnego repozytorium
+
+  # ─────────────────────────────────────────────────
+  # SEPA Batch – System rozliczeń batchowych
+  # ─────────────────────────────────────────────────
+  sepa-batch:
+    image: python:3.12-slim
+    container_name: bankeurob-sepa-batch
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    networks:
+      - bankeurob-net
+    profiles:
+      - full
+    # Uwaga: wymaga zewnętrznego obrazu lub zbudowania z osobnego repozytorium
+
+  # ─────────────────────────────────────────────────
+  # SEPA Instant – System przelewów natychmiastowych
+  # ─────────────────────────────────────────────────
+  sepa-instant:
+    image: python:3.12-slim
+    container_name: bankeurob-sepa-instant
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    networks:
+      - bankeurob-net
+    profiles:
+      - full
+    # Uwaga: wymaga zewnętrznego obrazu lub zbudowania z osobnego repozytorium
+
 volumes:
   postgres_data:
     driver: local

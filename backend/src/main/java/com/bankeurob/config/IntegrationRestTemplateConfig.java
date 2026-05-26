@@ -1,0 +1,25 @@
+package com.bankeurob.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.http.HttpClient;
+import java.time.Duration;
+
+/**
+ * Konfiguracja RestTemplate dla klientów integracyjnych.
+ * Ustawia timeouty i inne parametry połączeń HTTP do zewnętrznych serwisów.
+ */
+@Configuration
+public class IntegrationRestTemplateConfig {
+
+    @Bean
+    public RestTemplate integrationRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofSeconds(5).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(30).toMillis());
+        return new RestTemplate(factory);
+    }
+}
