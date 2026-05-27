@@ -22,21 +22,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { JuniorManagementPanel } from '../components/JuniorManagementPanel';
-
-type ChartDataPoint = {
-  name: string;
-  Wpływy: number;
-  Wydatki: number;
-};
-
-type ChartProps = {
-  data: ChartDataPoint[];
-};
-
-// Fallback chart wrapper to avoid unresolved module errors in this page.
-function Chart(_props: ChartProps) {
-  return null;
-}
+import Chart from '../components/Chart';
 
 interface Account {
   id: string;

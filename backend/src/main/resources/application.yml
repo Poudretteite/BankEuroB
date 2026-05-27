@@ -31,14 +31,6 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  # ─── RabbitMQ ──────────────────────────────────────────────────
-  rabbitmq:
-    host: ${SPRING_RABBITMQ_HOST:localhost}
-    port: ${SPRING_RABBITMQ_PORT:5672}
-    username: guest
-    password: guest
-    virtual-host: /
-
 # ─── Server ────────────────────────────────────────────────────────
 server:
   port: 8080
