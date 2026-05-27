@@ -101,8 +101,26 @@ public class AccountService {
         if (countryCode == null || countryCode.length() != 2) {
             countryCode = "DE";
         }
-        long accountNumber = System.currentTimeMillis() % 1_000_000_000_000_000_000L;
-        return String.format("%s89%018d", countryCode.toUpperCase(), accountNumber);
+        countryCode = countryCode.toUpperCase();
+        
+        long accountNumber = System.currentTimeMillis() % 1_000_000_000_000_000L;
+        String bban;
+        
+        if ("PL".equals(countryCode)) {
+            bban = String.format("11402004%016d", accountNumber); // PL bban ma 24 znaki
+        } else {
+            bban = String.format("37040044%010d", accountNumber); // DE bban ma 18 znaków
+        }
+        
+        // Obliczanie sumy kontrolnej wg MOD-97
+        int char1 = countryCode.charAt(0) - 55;
+        int char2 = countryCode.charAt(1) - 55;
+        String toCheck = bban + char1 + char2 + "00";
+        java.math.BigInteger bigInt = new java.math.BigInteger(toCheck);
+        int mod = bigInt.remainder(new java.math.BigInteger("97")).intValue();
+        int checksum = 98 - mod;
+        
+        return String.format("%s%02d%s", countryCode, checksum, bban);
     }
 
     private AccountDto toDto(Account account) {

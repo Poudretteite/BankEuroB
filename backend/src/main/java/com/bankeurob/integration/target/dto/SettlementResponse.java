@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -16,7 +16,7 @@ public class SettlementResponse {
     private String status;
 
     @JsonProperty("settled_at")
-    private OffsetDateTime settledAt;
+    private LocalDateTime settledAt;
 
     @JsonProperty("sender_balance")
     private String senderBalance;

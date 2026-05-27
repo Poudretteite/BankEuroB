@@ -64,7 +64,7 @@ public class Pain001Generator {
                             </DbtrAcct>
                             <DbtrAgt>
                                 <FinInstnId>
-                                    <BICFI>%s</BICFI>
+                                    <BIC>%s</BIC>
                                 </FinInstnId>
                             </DbtrAgt>
                             <CdtTrfTxInf>
@@ -84,7 +84,7 @@ public class Pain001Generator {
                                 </CdtrAcct>
                                 <CdtrAgt>
                                     <FinInstnId>
-                                        <BICFI>%s</BICFI>
+                                        <BIC>%s</BIC>
                                     </FinInstnId>
                                 </CdtrAgt>
                                 <RmtInf>

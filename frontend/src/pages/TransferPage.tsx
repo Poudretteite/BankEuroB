@@ -13,6 +13,7 @@ import { useAuthStore } from '../store/useAuthStore';
 const transferSchema = z.object({
   transferType: z.enum(['INTERNAL', 'SEPA_SCT', 'SEPA_INSTANT', 'RTGS_TARGET2', 'SWIFT']),
   receiverIban: z.string().min(15, 'Numer IBAN jest za krótki'),
+  receiverBic: z.string().optional(),
   receiverName: z.string().min(2, 'Podaj nazwę odbiorcy'),
   title: z.string().min(1, 'Tytuł przelewu jest wymagany'),
   amount: z.coerce.number().positive('Kwota musi być większa od zera'),
@@ -88,14 +89,14 @@ export const TransferPage: React.FC = () => {
         currency: 'EUR' // Główna waluta aplikacji
       });
       setIsSuccess(true);
-      reset({ transferType: 'INTERNAL', receiverIban: '', receiverName: '', title: '', amount: 0 });
+      reset({ transferType: 'INTERNAL', receiverIban: '', receiverBic: '', receiverName: '', title: '', amount: 0 });
       // 🔥 Invalidate cache po przelewie — odświeży saldo na wszystkich stronach
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       setTimeout(() => setIsSuccess(false), 5000);
     } catch (err: any) {
       setError('root', {
         type: 'manual',
-        message: err.response?.data?.message || 'Nie udało się zinicjować przelewu. Sprawdź saldo lub dane odbiorcy.',
+        message: err.response?.data?.error || err.response?.data?.message || 'Nie udało się zinicjować przelewu. Sprawdź saldo lub dane odbiorcy.',
       });
     }
   };
@@ -314,6 +315,18 @@ export const TransferPage: React.FC = () => {
               {...register('receiverIban')}
             />
           </div>
+
+          {selectedType !== 'INTERNAL' && (
+            <div className={styles.inputGroup}>
+              <Input
+                label="Kod BIC (SWIFT) banku odbiorcy"
+                placeholder="np. PKOXPLPW"
+                icon={<Building2 size={18} />}
+                error={errors.receiverBic?.message}
+                {...register('receiverBic')}
+              />
+            </div>
+          )}
 
           <div className={styles.row}>
             <div className={styles.flex2}>

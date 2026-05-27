@@ -12,6 +12,7 @@ import com.bankeurob.integration.target.dto.SettlementRequest;
 import com.bankeurob.integration.target.dto.SettlementResponse;
 import com.bankeurob.integration.xml.Pain001Generator;
 import com.bankeurob.security.CustomerUserDetails;
+import com.bankeurob.transfer.dto.TargetIncomingWebhookDto;
 import com.bankeurob.transfer.dto.TransactionDto;
 import com.bankeurob.transfer.dto.TransferRequest;
 import lombok.RequiredArgsConstructor;
@@ -142,8 +143,17 @@ public class TransferService {
 
             try {
                 if ("SEPA_SCT".equals(request.getTransferType())) {
-                    // Rozliczenie przez TARGET (RTGS) dla SEPA SCT
-                    log.info("Inicjowanie settlement TARGET dla przelewu {} typu SEPA_SCT",
+                    // Przelew SEPA Batch
+                    log.info("Inicjowanie SEPA Batch dla przelewu {}", transaction.getReferenceNumber());
+
+                    String xml = pain001Generator.generate(request, senderAccount);
+                    String responseXml = sepaBatchClient.submitTransferXml(xml);
+
+                    transaction.setStatus("PROCESSING");
+                    log.info("SEPA Batch przyjęty do kolejki dla {}", transaction.getReferenceNumber());
+                } else if ("RTGS_TARGET2".equals(request.getTransferType())) {
+                    // Rozliczenie przez TARGET (RTGS)
+                    log.info("Inicjowanie settlement TARGET dla przelewu {} typu RTGS_TARGET2",
                             transaction.getReferenceNumber());
 
                     SettlementResponse settlement = targetClient.settlePayment(new SettlementRequest(
@@ -224,14 +234,16 @@ public class TransferService {
     public List<TransactionDto> getMyTransactions(String iban, Authentication authentication) {
         CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
 
-        Account account = accountRepository.findByIban(iban)
-                .orElseThrow(() -> new RuntimeException("Konto nie znalezione: " + iban));
+        final String cleanIban = iban != null ? iban.replaceAll("\\s+", "") : null;
+
+        Account account = accountRepository.findByIban(cleanIban)
+                .orElseThrow(() -> new RuntimeException("Konto nie znalezione: " + cleanIban));
 
         if (!account.getCustomer().getId().equals(userDetails.getCustomerId())) {
             throw new AccessDeniedException("Brak uprawnień do tego konta");
         }
 
-        return transactionRepository.findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(iban, iban)
+        return transactionRepository.findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(cleanIban, cleanIban)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
@@ -289,6 +301,18 @@ public class TransferService {
         // Dla przelewów międzybankowych Juniora — wyślij do zewnętrznego systemu
         try {
             if ("SEPA_SCT".equals(transaction.getTransactionType())) {
+                TransferRequest dummyRequest = new TransferRequest();
+                dummyRequest.setSenderIban(transaction.getSenderIban());
+                dummyRequest.setReceiverIban(transaction.getReceiverIban());
+                dummyRequest.setReceiverName(transaction.getReceiverName());
+                dummyRequest.setReceiverBic(transaction.getReceiverBic());
+                dummyRequest.setAmount(transaction.getAmount());
+                dummyRequest.setTitle(transaction.getTitle());
+                dummyRequest.setTransferType(transaction.getTransactionType());
+
+                String xml = pain001Generator.generate(dummyRequest, senderAccount);
+                sepaBatchClient.submitTransferXml(xml);
+            } else if ("RTGS_TARGET2".equals(transaction.getTransactionType())) {
                 SettlementResponse settlement = targetClient.settlePayment(new SettlementRequest(
                         transaction.getReferenceNumber(),
                         senderAccount.getBic(),
@@ -378,5 +402,41 @@ public class TransferService {
             return new BigDecimal("5.00");
         }
         return BigDecimal.ZERO;
+    }
+
+    @Transactional
+    public void handleIncomingTargetWebhook(TargetIncomingWebhookDto dto) {
+        // Znajdź konto odbiorcy w naszym banku
+        final String cleanIban = dto.getReceiverIban() != null ? dto.getReceiverIban().replaceAll("\\s+", "") : null;
+        
+        Account receiverAccount = accountRepository.findByIban(cleanIban)
+                .orElseThrow(() -> new RuntimeException("Konto odbiorcy nie znalezione w BankEuroB: " + cleanIban));
+
+        // Księgowanie środków na koncie odbiorcy
+        receiverAccount.setBalance(receiverAccount.getBalance().add(dto.getAmount()));
+        receiverAccount.setAvailableBalance(receiverAccount.getAvailableBalance().add(dto.getAmount()));
+        accountRepository.save(receiverAccount);
+
+        // Zapisanie transakcji jako przychodzącej
+        Transaction transaction = new Transaction();
+        transaction.setReferenceNumber(generateReferenceNumber());
+        transaction.setTransactionType("INCOMING_TARGET");
+        transaction.setStatus("COMPLETED");
+        
+        transaction.setSenderIban("EXTERNAL_BANK");
+        transaction.setSenderName("Bank zewnętrzny (TARGET)");
+        transaction.setSenderBic(dto.getSenderBic());
+        
+        transaction.setReceiverIban(receiverAccount.getIban());
+        transaction.setReceiverName(receiverAccount.getCustomer().getFirstName() + " " + receiverAccount.getCustomer().getLastName());
+        
+        transaction.setAmount(dto.getAmount());
+        transaction.setCurrency(dto.getCurrency());
+        transaction.setTitle(dto.getTitle() != null ? dto.getTitle() : "Przelew przychodzący TARGET");
+        transaction.setExternalMessageId(dto.getTransactionId());
+        transaction.setCompletedAt(OffsetDateTime.now());
+
+        transactionRepository.save(transaction);
+        log.info("Pomyślnie zaksięgowano przychodzący przelew TARGET o ID {} na konto {}", dto.getTransactionId(), receiverAccount.getIban());
     }
 }

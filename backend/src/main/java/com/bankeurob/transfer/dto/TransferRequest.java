@@ -14,6 +14,14 @@ public class TransferRequest {
     @NotBlank(message = "IBAN odbiorcy jest wymagany")
     private String receiverIban;
 
+    public void setSenderIban(String senderIban) {
+        this.senderIban = senderIban != null ? senderIban.replaceAll("\\s+", "") : null;
+    }
+
+    public void setReceiverIban(String receiverIban) {
+        this.receiverIban = receiverIban != null ? receiverIban.replaceAll("\\s+", "") : null;
+    }
+
     @NotBlank(message = "Nazwa odbiorcy jest wymagana")
     private String receiverName;
 

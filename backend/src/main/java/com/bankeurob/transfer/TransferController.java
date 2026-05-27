@@ -54,6 +54,18 @@ public class TransferController {
                 .body(transferService.createTransfer(request, authentication));
     }
 
+    @PostMapping("/webhook/target")
+    @Operation(
+            summary = "Webhook dla systemu TARGET",
+            description = "Endpoint do odbierania powiadomień z systemu TARGET o przychodzącym przelewie"
+    )
+    public ResponseEntity<Void> handleTargetWebhook(
+            @Valid @RequestBody com.bankeurob.transfer.dto.TargetIncomingWebhookDto request
+    ) {
+        transferService.handleIncomingTargetWebhook(request);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping
     @Operation(
             summary = "Historia transakcji",

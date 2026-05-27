@@ -54,7 +54,7 @@ public class DataSeeder implements ApplicationRunner {
                 LocalDate.of(1990, 5, 15),
                 "CUSTOMER"
         );
-        createAccount(anna, "DE89370400440000100001", new BigDecimal("10000.00"));
+        createAccount(anna, "DE36370400440000100001", new BigDecimal("10000.00"));
 
         // ─── Klient testowy 2: Jan Nowak ─────────────────────
         Customer jan = createCustomer(
@@ -65,7 +65,7 @@ public class DataSeeder implements ApplicationRunner {
                 LocalDate.of(1985, 3, 22),
                 "CUSTOMER"
         );
-        createAccount(jan, "DE89370400440000200002", new BigDecimal("5000.00"));
+        createAccount(jan, "DE04370400440000200002", new BigDecimal("5000.00"));
 
         // ─── Klient testowy 3: Kamil Kowalski (JUNIOR) ────────
         Customer kamil = createJunior(
@@ -76,7 +76,7 @@ public class DataSeeder implements ApplicationRunner {
                 LocalDate.of(2015, 1, 1),
                 anna
         );
-        createJuniorAccount(kamil, "DE89370400440000300003", new BigDecimal("150.00"), anna);
+        createJuniorAccount(kamil, "DE69370400440000300003", new BigDecimal("150.00"), anna);
 
         log.info("""
                 DataSeeder: inicjalizacja zakończona!

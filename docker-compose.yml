@@ -1,8 +1,25 @@
-version: '3.9'
+name: bankeurob
+
+# ============================================================
+# BankEuroB – Główny system bankowości internetowej
+# ============================================================
+# Uruchamia tylko podstawowe usługi BankEuroB:
+#   - PostgreSQL (baza danych)
+#   - pgAdmin (panel zarządzania bazą)
+#   - RabbitMQ (messaging)
+#   - Backend (Spring Boot)
+#   - Frontend (React + Vite)
+#
+# Systemy płatnicze są uruchamiane osobno w swoich folderach:
+#   - eu-payments-units/docker-compose.yml
+#   - Karty-Platnicze-Aplikacje-Biznesowe/docker-compose.yaml
+#   - KLIK-payments/docker-compose.yml
+#   - SWIFT-Aplikacje-Biznesowe/docker-compose.yml
+# ============================================================
 
 services:
   # ─────────────────────────────────────────────────
-  # PostgreSQL – główna baza danych
+  # PostgreSQL – główna baza danych BankEuroB
   # ─────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
@@ -66,7 +83,6 @@ services:
 
   # ─────────────────────────────────────────────────
   # Backend – Spring Boot
-  # (Dockerfile zostanie dodany po zainicjowaniu projektu)
   # ─────────────────────────────────────────────────
   backend:
     build:
@@ -82,6 +98,13 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
+      # Integracja z systemami płatniczymi – adresy w sieci Docker
+      # Spring Boot relaxed binding: integration.target.base-url → INTEGRATION_TARGET_BASEURL
+      INTEGRATION_TARGET_BASEURL: http://target-service:8001
+      INTEGRATION_SEPA_BATCH_BASEURL: http://sepa-batch-service:8002
+      INTEGRATION_SEPA_INSTANT_BASEURL: http://sepa-instant-service:8003
+      INTEGRATION_SWIFT_BASEURL: http://swift-app:3000
+      INTEGRATION_CARDS_GATEWAY_BASEURL: http://payment-gateway:8000
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
@@ -91,8 +114,6 @@ services:
         condition: service_healthy
     networks:
       - bankeurob-net
-    profiles:
-      - full  # uruchamiaj tylko gdy backend już istnieje: docker compose --profile full up
 
   # ─────────────────────────────────────────────────
   # Frontend – React (Vite)
@@ -109,53 +130,6 @@ services:
       - backend
     networks:
       - bankeurob-net
-    profiles:
-      - full  # uruchamiaj tylko gdy frontend już istnieje
-
-  # ─────────────────────────────────────────────────
-  # TARGET RTGS – Centralny system rozliczeń międzybankowych
-  # ─────────────────────────────────────────────────
-  target-service:
-    image: python:3.12-slim
-    container_name: bankeurob-target
-    restart: unless-stopped
-    ports:
-      - "8001:8001"
-    networks:
-      - bankeurob-net
-    profiles:
-      - full
-    # Uwaga: wymaga zewnętrznego obrazu lub zbudowania z osobnego repozytorium
-
-  # ─────────────────────────────────────────────────
-  # SEPA Batch – System rozliczeń batchowych
-  # ─────────────────────────────────────────────────
-  sepa-batch:
-    image: python:3.12-slim
-    container_name: bankeurob-sepa-batch
-    restart: unless-stopped
-    ports:
-      - "8002:8002"
-    networks:
-      - bankeurob-net
-    profiles:
-      - full
-    # Uwaga: wymaga zewnętrznego obrazu lub zbudowania z osobnego repozytorium
-
-  # ─────────────────────────────────────────────────
-  # SEPA Instant – System przelewów natychmiastowych
-  # ─────────────────────────────────────────────────
-  sepa-instant:
-    image: python:3.12-slim
-    container_name: bankeurob-sepa-instant
-    restart: unless-stopped
-    ports:
-      - "8003:8003"
-    networks:
-      - bankeurob-net
-    profiles:
-      - full
-    # Uwaga: wymaga zewnętrznego obrazu lub zbudowania z osobnego repozytorium
 
 volumes:
   postgres_data:
