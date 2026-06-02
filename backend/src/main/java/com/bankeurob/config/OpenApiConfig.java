@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.info.License;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
+import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.DateTimeSchema;
 import io.swagger.v3.oas.models.media.IntegerSchema;
@@ -42,6 +43,7 @@ import java.util.Map;
                         * **TARGET RTGS** – integracja z centralnym systemem rozliczeń międzybankowych
                         * **SEPA Batch** – rozliczenia batchowe i multilateral netting
                         * **SEPA Instant** – przelewy natychmiastowe w standardzie ISO 20022
+                        * **SWIFT Middleware** – integracja z systemem do wysyłki pacs.008 XML do banków zagranicznych (port 3000)
                         
                         ---
                         **Autoryzacja:** Większość endpointów wymaga tokena JWT w nagłówku `Authorization: Bearer <token>`.
@@ -245,6 +247,17 @@ public class OpenApiConfig {
                                     """)
                             .example("SEPA_SCT")
                             ._default("INTERNAL"))
+                    .addProperties("chargeBearer", new StringSchema()
+                            .description("""
+                                    Charge Bearer (ChrgBr) – określa kto ponosi opłaty za przelew SWIFT:
+                                    * `DEBT` – płaci nadawca (debitor)
+                                    * `CRED` – płaci odbiorca (kredytor)
+                                    * `SHAR` – koszty dzielone (domyślnie)
+                                    * `SLEV` – zasady opłat ustalane przez schemat usługi
+                                    Pole wykorzystywane tylko dla przelewów typu SWIFT.
+                                    """)
+                            .example("SHAR")
+                            ._default("SHAR"))
                     .required(List.of("senderIban", "receiverIban", "receiverName", "amount"))
             );
 
@@ -258,13 +271,13 @@ public class OpenApiConfig {
                             .description("ID transakcji")
                             .example("550e8400-e29b-41d4-a716-446655440003"))
                     .addProperties("referenceNumber", new StringSchema()
-                            .description("Numer referencyjny transakcji")
-                            .example("BKEU-20260512-000001"))
+                            .description("Numer referencyjny transakcji (format: BEB{timestamp}{random hex})")
+                            .example("BEB1712345678900A1B2C3"))
                     .addProperties("transactionType", new StringSchema()
                             .description("Typ transakcji (INTERNAL, SEPA_SCT, SEPA_INSTANT, SWIFT)")
                             .example("SEPA_SCT"))
                     .addProperties("status", new StringSchema()
-                            .description("Status transakcji (COMPLETED, PENDING, REJECTED, FAILED)")
+                            .description("Status transakcji (COMPLETED, PENDING, REJECTED, FAILED, PROCESSING)")
                             .example("COMPLETED"))
                     .addProperties("senderIban", new StringSchema()
                             .description("IBAN nadawcy")
@@ -462,7 +475,7 @@ public class OpenApiConfig {
                     .description("Dane do rejestracji banku w systemie TARGET RTGS")
                     .addProperties("bic", new StringSchema()
                             .description("Kod BIC/SWIFT banku")
-                            .example("BKEBPLPW"))
+                            .example("BKEUDEBBXXX"))
                     .addProperties("name", new StringSchema()
                             .description("Nazwa banku")
                             .example("BankEuroB"))
@@ -480,7 +493,7 @@ public class OpenApiConfig {
                             .example(1))
                     .addProperties("bic", new StringSchema()
                             .description("Kod BIC/SWIFT")
-                            .example("BKEBPLPW"))
+                            .example("BKEUDEBBXXX"))
                     .addProperties("name", new StringSchema()
                             .description("Nazwa banku")
                             .example("BankEuroB"))
@@ -503,7 +516,7 @@ public class OpenApiConfig {
                             .example(1))
                     .addProperties("bic", new StringSchema()
                             .description("Kod BIC/SWIFT")
-                            .example("BKEBPLPW"))
+                            .example("BKEUDEBBXXX"))
                     .addProperties("name", new StringSchema()
                             .description("Nazwa banku")
                             .example("BankEuroB"))
@@ -553,10 +566,10 @@ public class OpenApiConfig {
                     .description("Żądanie rozliczenia płatności międzybankowej w TARGET RTGS")
                     .addProperties("transaction_id", new StringSchema()
                             .description("ID transakcji (referencja)")
-                            .example("BKEU-20260526-000001"))
+                            .example("BEB1712345678900A1B2C3"))
                     .addProperties("sender_bic", new StringSchema()
                             .description("BIC nadawcy")
-                            .example("BKEBPLPW"))
+                            .example("BKEUDEBBXXX"))
                     .addProperties("receiver_bic", new StringSchema()
                             .description("BIC odbiorcy")
                             .example("DEUTDEFFXXX"))
@@ -583,7 +596,7 @@ public class OpenApiConfig {
                     .description("Odpowiedź z systemu TARGET po rozliczeniu płatności")
                     .addProperties("transaction_id", new StringSchema()
                             .description("ID transakcji w TARGET")
-                            .example("BKEU-20260526-000001"))
+                            .example("BEB1712345678900A1B2C3"))
                     .addProperties("status", new StringSchema()
                             .description("Status rozliczenia (SETTLED, COMPLETED, FAILED)")
                             .example("SETTLED"))
@@ -606,7 +619,7 @@ public class OpenApiConfig {
                     .description("Żądanie zastrzyku płynności w systemie TARGET")
                     .addProperties("bank_bic", new StringSchema()
                             .description("BIC banku")
-                            .example("BKEBPLPW"))
+                            .example("BKEUDEBBXXX"))
                     .addProperties("amount", new NumberSchema()
                             .description("Kwota zastrzyku")
                             .example(new BigDecimal("1000000.00")))
@@ -627,7 +640,7 @@ public class OpenApiConfig {
                             .example("LIQ-20260526-0001"))
                     .addProperties("bank_bic", new StringSchema()
                             .description("BIC banku")
-                            .example("BKEBPLPW"))
+                            .example("BKEUDEBBXXX"))
                     .addProperties("amount", new NumberSchema()
                             .description("Kwota zastrzyku")
                             .example(new BigDecimal("1000000.00")))
@@ -653,6 +666,59 @@ public class OpenApiConfig {
                             .example("2026-05-26T12:00:00Z"))
                     .addProperties("error_message", new StringSchema()
                             .description("Komunikat błędu (jeśli status=FAILED)")
+                            .example(null))
+            );
+
+            // ─────────────────────────────────────────────────
+            // SwiftMessageResponse (SWIFT Middleware)
+            // ─────────────────────────────────────────────────
+            schemas.put("SwiftMessageResponse", new Schema<>()
+                    .type("object")
+                    .description("Odpowiedź z SWIFT Middleware API po wysłaniu komunikatu pacs.008")
+                    .addProperties("status", new StringSchema()
+                            .description("Status odpowiedzi (accepted, rejected)")
+                            .example("accepted"))
+                    .addProperties("message_id", new StringSchema()
+                            .description("ID komunikatu nadane przez SWIFT Middleware")
+                            .example("MSG-1001"))
+                    .addProperties("uetr", new StringSchema()
+                            .description("Universally Unique Transaction Identifier (UETR)")
+                            .example("11111111-1111-4111-8111-111111111111"))
+                    .addProperties("receiver_bank", new StringSchema()
+                            .description("Nazwa banku odbiorcy")
+                            .example("Bank UK 1"))
+                    .addProperties("route", new ArraySchema()
+                            .description("Trasa przesyłania komunikatu (lista BIC)")
+                            .items(new StringSchema().example("PLBKPL01XXX")))
+                    .addProperties("estimated_seconds", new NumberSchema()
+                            .description("Szacowany czas dostarczenia w sekundach")
+                            .example(1.0))
+                    .addProperties("fee_breakdown", new Schema<>()
+                            .type("object")
+                            .description("Szczegóły opłat za przelew SWIFT")
+                            .example(Map.of("total_fee", 0.75)))
+                    .addProperties("cancel_window_seconds", new IntegerSchema()
+                            .description("Okno czasowe na anulowanie przelewu (sekundy)")
+                            .example(5))
+                    .addProperties("error", new StringSchema()
+                            .description("Komunikat błędu (jeśli status=rejected)")
+                            .example(null))
+            );
+
+            // ─────────────────────────────────────────────────
+            // SwiftCancelResponse (SWIFT Middleware)
+            // ─────────────────────────────────────────────────
+            schemas.put("SwiftCancelResponse", new Schema<>()
+                    .type("object")
+                    .description("Odpowiedź z SWIFT Middleware API po anulowaniu przelewu")
+                    .addProperties("status", new StringSchema()
+                            .description("Status anulowania (cancelled, failed)")
+                            .example("cancelled"))
+                    .addProperties("uetr", new StringSchema()
+                            .description("UETR anulowanego przelewu")
+                            .example("11111111-1111-4111-8111-111111111111"))
+                    .addProperties("error", new StringSchema()
+                            .description("Komunikat błędu (jeśli anulowanie się nie powiodło)")
                             .example(null))
             );
 

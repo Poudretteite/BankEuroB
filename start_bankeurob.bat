@@ -99,7 +99,7 @@ echo   SYSTEMY PLATNICZE:
 echo   TARGET RTGS:              http://localhost:8001
 echo   SEPA Batch:               http://localhost:8002
 echo   SEPA Instant:             http://localhost:8003
-echo   SWIFT Middleware:         http://localhost:3006
+echo   SWIFT Middleware:         http://localhost:3000
 echo   Payment Gateway (karty):  http://localhost:8072
 echo   Admin Panel (karty):      http://localhost:3072
 echo   KLIK RTGS Mock:           http://localhost:9005
@@ -110,6 +110,7 @@ echo   RabbitMQ Management:      http://localhost:15672
 echo  ------------------------------------------------------------
 echo   Konta testowe:
 echo     anna.kowalski@example.com  /  password123
+
 echo     jan.nowak@example.com      /  password123
 echo     admin@bankeurob.eu         /  admin123
 echo  ============================================================

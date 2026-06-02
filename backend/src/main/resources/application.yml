@@ -66,27 +66,34 @@ app:
 
 # ─── Integracja z zewnętrznymi systemami ──────────────────────────
 integration:
-  target:
-    base-url: "http://localhost:8001"
+    target:
+    base-url: "${INTEGRATION_TARGET_BASEURL:http://localhost:8001}"
     connect-timeout: 5000
     read-timeout: 10000
   sepa:
     batch:
-      base-url: "http://localhost:8002"
+      base-url: "${INTEGRATION_SEPA_BATCH_BASEURL:http://localhost:8002}"
       connect-timeout: 5000
       read-timeout: 30000
     instant:
-      base-url: "http://localhost:8003"
+      base-url: "${INTEGRATION_SEPA_INSTANT_BASEURL:http://localhost:8003}"
       connect-timeout: 5000
       read-timeout: 10000
   swift:
-    base-url: "http://localhost:3000"
+    base-url: "${INTEGRATION_SWIFT_BASEURL:http://localhost:3000}"
     client-id: "test-client"
     client-secret: "test-secret"
     connect-timeout: 5000
     read-timeout: 15000
   cards:
     gateway:
-      base-url: "http://localhost:8072"
+      base-url: "http://cards_gateway_app:8000"
       connect-timeout: 5000
       read-timeout: 10000
+  klik:
+    base-url: "http://klik-payments-web-1:8000"
+    api-key: "${KLIK_API_KEY:}"
+    connect-timeout: 5000
+    read-timeout: 10000
+
+

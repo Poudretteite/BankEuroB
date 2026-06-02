@@ -1,6 +1,6 @@
 # BankEuroB
 
-Nowoczesna aplikacja bankowa (Premium Banking) realizująca pełne środowisko Full-Stack. Architektura podzielona na backend napisany w Javie (Spring Boot) oraz piękny, interaktywny interfejs w React (Vite, TypeScript, autorski design Glassmorphism).
+Nowoczesna aplikacja bankowa (Premium Banking) realizująca pełne środowisko Full-Stack. Architektura podzielona na backend napisany w Javie 21 (Spring Boot) oraz piękny, interaktywny interfejs w React (Vite, TypeScript, autorski design Glassmorphism).
 
 ---
 
@@ -31,7 +31,8 @@ Nowoczesna aplikacja bankowa (Premium Banking) realizująca pełne środowisko F
 | **Konto bankowe (Account)** | Rachunek prowadzony w walucie EUR. Typy: `STANDARD` (podstawowe), `SAVINGS` (oszczędnościowe), `JUNIOR` (dziecięce). |
 | **IBAN** | Międzynarodowy numer rachunku bankowego (ISO 13616). Format: `KK89` + 18 cyfr (np. `DE89370400440532013000`). |
 | **BIC/SWIFT** | Kod identyfikacyjny banku: `BKEUDEBBXXX`. |
-| **Przelew (Transfer)** | Dyspozycja przesłania środków z jednego rachunku na drugi. Typy: `INTERNAL`, `SEPA_SCT`, `SEPA_INSTANT`, `SWIFT`. |
+| **SWIFT Middleware** | System pośredniczący w wysyłaniu komunikatów SWIFT (pacs.008) do banków zagranicznych. Działa na porcie 3000, wymaga autoryzacji OAuth2. |
+| **Przelew (Transfer)** | Dyspozycja przesłania środków z jednego rachunku na drugi. Typy: `INTERNAL`, `SEPA_SCT`, `SEPA_INSTANT`, `SWIFT`. Dla przelewów SWIFT dostępne jest pole `chargeBearer` (DEBT/CRED/SHAR/SLEV). |
 | **Transakcja (Transaction)** | Zdarzenie księgowe rejestrujące przepływ środków. Statusy: `PENDING`, `PROCESSING`, `COMPLETED`, `REJECTED`, `FAILED`. |
 | **Konto Junior** | Konto dla nieletnich (poniżej 18 lat), wymagające zgody rodzica na logowanie i przelewy powyżej limitu. |
 | **BLIK** | System płatności mobilnych. Klient ustawia 4-cyfrowy PIN do autoryzacji transakcji BLIK. |
@@ -99,6 +100,7 @@ C4Context
     System_Ext(target, "TARGET RTGS", "Centralny system rozliczeń międzybankowych (localhost:8001)")
     System_Ext(sepaBatch, "SEPA Batch", "System rozliczeń batchowych i nettingu (localhost:8002)")
     System_Ext(sepaInstant, "SEPA Instant", "System przelewów natychmiastowych (localhost:8003)")
+    System_Ext(swiftMw, "SWIFT Middleware", "System pośredniczący SWIFT (localhost:3000)")
 
     Rel(klient, webapp, "Używa", "HTTPS")
     Rel(parent, webapp, "Zatwierdza operacje dziecka", "HTTPS")
@@ -109,6 +111,7 @@ C4Context
     Rel(api, target, "Rozlicza płatności międzybankowe", "REST/JSON")
     Rel(api, sepaBatch, "Przesyła XML pain.001", "REST/XML")
     Rel(api, sepaInstant, "Przesyła przelewy natychmiastowe", "REST/XML")
+    Rel(api, swiftMw, "Wysyła komunikaty SWIFT pacs.008", "REST/XML")
 ```
 
 ### Diagram warstw backendu
@@ -143,6 +146,8 @@ flowchart TB
         TargetClient["TargetServiceClient\nTARGET RTGS"]
         SepaBatchClient["SepaBatchClient\nSEPA Batch"]
         SepaInstantClient["SepaInstantClient\nSEPA Instant"]
+        SwiftClient["SwiftServiceClient\nSWIFT Middleware"]
+        SwiftXmlGen["SwiftXmlGenerator\npacs.008 XML"]
         Pain001["Pain001Generator\nISO 20022 XML"]
     end
 
@@ -158,6 +163,7 @@ flowchart TB
         Target["TARGET RTGS\nlocalhost:8001"]
         SepaBatch["SEPA Batch\nlocalhost:8002"]
         SepaInstant["SEPA Instant\nlocalhost:8003"]
+        SwiftMw["SWIFT Middleware\nlocalhost:3000"]
     end
 
     subgraph Database["💾 Baza Danych"]
@@ -181,18 +187,23 @@ flowchart TB
     AdminCtrl --> TargetClient
     AdminCtrl --> SepaBatchClient
     AdminCtrl --> SepaInstantClient
+    AdminCtrl --> SwiftClient
     CardCtrl --> CardProvider
 
     TransferSvc --> TargetClient
     TransferSvc --> SepaBatchClient
     TransferSvc --> SepaInstantClient
+    TransferSvc --> SwiftClient
     TransferSvc --> Pain001
+    TransferSvc --> SwiftXmlGen
 
     TargetClient --> Target
     SepaBatchClient --> SepaBatch
     SepaInstantClient --> SepaInstant
+    SwiftClient --> SwiftMw
     Pain001 --> SepaBatchClient
     Pain001 --> SepaInstantClient
+    SwiftXmlGen --> SwiftClient
 
     AuthSvc --> Security
     TransferSvc --> Rabbit
@@ -247,7 +258,7 @@ classDiagram
 
     class Transaction {
         +UUID id
-        +String referenceNumber
+        +String referenceNumber (format: BEB{timestamp}{random})
         +String transactionType
         +String status
         +String senderIban
@@ -441,7 +452,7 @@ flowchart TD
 
 ## Integracja z systemami zewnętrznymi
 
-BankEuroB integruje się z trzema zewnętrznymi systemami do zarządzania rozliczeniami międzybankowymi:
+BankEuroB integruje się z czterema zewnętrznymi systemami do zarządzania rozliczeniami międzybankowymi:
 
 ### TARGET RTGS (Central Bank Settlement)
 
@@ -475,6 +486,18 @@ System przelewów natychmiastowych SEPA (24/7/365). Odpowiada za:
 - Udostępnianie statusu przelewów
 
 **Integracja:** [`SepaInstantClient`](backend/src/main/java/com/bankeurob/integration/sepa/instant/SepaInstantClient.java) → [`POST /transfers/xml`](backend/src/main/java/com/bankeurob/integration/sepa/instant/SepaInstantClient.java:34)
+
+### SWIFT Middleware
+
+**URL:** `http://localhost:3000`
+
+System pośredniczący w wysyłaniu komunikatów SWIFT (pacs.008.001.08) do banków zagranicznych. Odpowiada za:
+- Autoryzację OAuth2 (client_credentials)
+- Wysyłanie komunikatów XML pacs.008 do banków odbiorców
+- Anulowanie oczekujących przelewów w oknie anulowania (5s)
+- Routing międzybankowy przez sieć SWIFT
+
+**Integracja:** [`SwiftServiceClient`](backend/src/main/java/com/bankeurob/integration/swift/SwiftServiceClient.java) → [`POST /swift/message`](backend/src/main/java/com/bankeurob/integration/swift/SwiftServiceClient.java:51) (z autoryzacją Bearer token)
 
 ### Diagram sekwencji — przelew SEPA z integracją TARGET
 
@@ -529,7 +552,9 @@ sequenceDiagram
 
 ### Generowanie XML ISO 20022
 
-Klasa [`Pain001Generator`](backend/src/main/java/com/bankeurob/integration/xml/Pain001Generator.java) generuje dokumenty XML zgodne ze standardem **ISO 20022 pain.001.001.09** (CustomerCreditTransferInitiation). Struktura XML:
+Klasa [`Pain001Generator`](backend/src/main/java/com/bankeurob/integration/xml/Pain001Generator.java) generuje dokumenty XML zgodne ze standardem **ISO 20022 pain.001.001.09** (CustomerCreditTransferInitiation) dla przelewów SEPA. Dla przelewów SWIFT klasa [`SwiftXmlGenerator`](backend/src/main/java/com/bankeurob/integration/swift/SwiftXmlGenerator.java) generuje dokumenty **pacs.008.001.08** (FIToFICstmrCdtTrf).
+
+Struktura XML pain.001:
 
 ```
 <Document>
@@ -549,13 +574,31 @@ Klasa [`Pain001Generator`](backend/src/main/java/com/bankeurob/integration/xml/P
         <RmtInf>       ← tytuł przelewu
 ```
 
+Struktura XML pacs.008 (SWIFT):
+```
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>              ← nagłówek grupy (MsgId, CreDtTm, NbOfTxs, SttlmInf)
+    <CdtTrfTxInf>         ← szczegóły przelewu
+      <PmtId>             ← InstrId, EndToEndId, UETR
+      <IntrBkSttlmAmt>    ← kwota rozliczenia międzybankowego
+      <ChrgBr>            ← kto ponosi opłaty (DEBT/CRED/SHAR/SLEV)
+      <Dbtr>              ← dane nadawcy
+      <DbtrAcct>          ← konto nadawcy (IBAN)
+      <DbtrAgt>           ← bank nadawcy (BIC)
+      <Cdtr>              ← dane odbiorcy
+      <CdtrAgt>           ← bank odbiorcy (BIC)
+      <CdtrAcct>          ← konto odbiorcy (IBAN w Othr/Id)
+      <RmtInf>            ← tytuł przelewu
+```
+
 ---
 
 ## Jak uruchomić projekt lokalnie u siebie?
 
 Aby projekt zadziałał, musisz posiadać zainstalowane:
 - **Docker** (i Docker Compose)
-- **Java 17**
+- **Java 21**
 - **Node.js** (rekomendowane v18+)
 
 ### Krok 1: Włączenie bazy danych (Docker)
@@ -639,10 +682,12 @@ Dokumentacja REST API dostępna jest w standardzie **OpenAPI 3.0** (Swagger) po 
 | `POST` | `/api/admin/sepa/sessions/{id}/close` | Zamknięcie sesji (netting) | ✅ JWT |
 | `GET` | `/api/admin/sepa/instant` | Lista przelewów SEPA Instant | ✅ JWT |
 | `GET` | `/api/admin/sepa/instant/{id}` | Status przelewu SEPA Instant | ✅ JWT |
+| `POST` | `/api/admin/swift/message` | Wysłanie komunikatu SWIFT (XML pacs.008) | ✅ JWT |
+| `POST` | `/api/admin/swift/cancel/{uetr}` | Anulowanie komunikatu SWIFT po UETR | ✅ JWT |
 
 ### Schematy DTO
 
-Szczegółowe schematy wszystkich obiektów DTO (`LoginRequest`, `RegisterRequest`, `AuthResponse`, `AccountDto`, `TransferRequest`, `TransactionDto`, `UpdateCustomerRequest`, `BlikPinRequest`, `JuniorAccountRequest`, `Customer`, `ErrorResponse`, `PendingLogin`, `CardIntegrationResponse`, `BankCreateRequest`, `BankResponse`, `BankDetailResponse`, `SettlementAccountResponse`, `SettlementRequest`, `SettlementResponse`, `LiquidityInjectionRequest`, `LiquidityInjectionResponse`, `TransferStatusResponse`) dostępne są w Swagger UI.
+Szczegółowe schematy wszystkich obiektów DTO (`LoginRequest`, `RegisterRequest`, `AuthResponse`, `AccountDto`, `TransferRequest`, `TransactionDto`, `UpdateCustomerRequest`, `BlikPinRequest`, `JuniorAccountRequest`, `Customer`, `ErrorResponse`, `PendingLogin`, `PendingTransfer`, `CardIntegrationResponse`, `BankCreateRequest`, `BankResponse`, `BankDetailResponse`, `SettlementAccountResponse`, `SettlementRequest`, `SettlementResponse`, `LiquidityInjectionRequest`, `LiquidityInjectionResponse`, `TransferStatusResponse`, `SwiftMessageResponse`, `SwiftCancelResponse`) dostępne są w Swagger UI.
 
 ---
 

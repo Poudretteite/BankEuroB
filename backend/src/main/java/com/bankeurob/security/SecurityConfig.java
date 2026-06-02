@@ -45,6 +45,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/transfers/webhook/**").permitAll()
+                        .requestMatchers("/api/cards/status", "/api/klik/status").permitAll()
+                        .requestMatchers("/api/klik/webhook/**").permitAll()
                         .requestMatchers("/api/junior/**").authenticated()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
@@ -87,3 +89,4 @@ public class SecurityConfig {
         return source;
     }
 }
+

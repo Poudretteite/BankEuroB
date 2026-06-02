@@ -26,6 +26,7 @@ services:
     container_name: bankeurob-postgres
     restart: unless-stopped
     environment:
+      KLIK_API_KEY: klik_776d015433da425cae6d89576e3cc416
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -52,6 +53,7 @@ services:
     container_name: bankeurob-pgadmin
     restart: unless-stopped
     environment:
+      KLIK_API_KEY: klik_776d015433da425cae6d89576e3cc416
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
@@ -91,6 +93,7 @@ services:
     container_name: bankeurob-backend
     restart: unless-stopped
     environment:
+      KLIK_API_KEY: klik_776d015433da425cae6d89576e3cc416
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -100,20 +103,21 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       # Integracja z systemami płatniczymi – adresy w sieci Docker
       # Spring Boot relaxed binding: integration.target.base-url → INTEGRATION_TARGET_BASEURL
-      INTEGRATION_TARGET_BASEURL: http://target-service:8001
-      INTEGRATION_SEPA_BATCH_BASEURL: http://sepa-batch-service:8002
-      INTEGRATION_SEPA_INSTANT_BASEURL: http://sepa-instant-service:8003
+            INTEGRATION_TARGET_BASEURL: http://target_service:8001
+      INTEGRATION_SEPA_BATCH_BASEURL: http://sepa_batch_service:8002
+      INTEGRATION_SEPA_INSTANT_BASEURL: http://sepa_instant_service:8003
       INTEGRATION_SWIFT_BASEURL: http://swift-app:3000
-      INTEGRATION_CARDS_GATEWAY_BASEURL: http://payment-gateway:8000
+      INTEGRATION_CARDS_GATEWAY_BASEURL: http://cards_gateway_app:8000
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy
+                condition: service_healthy
     networks:
       - bankeurob-net
+      - bankeurob-unified-net
 
   # ─────────────────────────────────────────────────
   # Frontend – React (Vite)
@@ -138,3 +142,11 @@ volumes:
 networks:
   bankeurob-net:
     driver: bridge
+  bankeurob-unified-net:
+    external: true
+
+
+
+
+
+

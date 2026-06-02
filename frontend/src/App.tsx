@@ -11,6 +11,7 @@ const TransferPage = lazy(() => import('./pages/TransferPage').then(m => ({ defa
 const BlikPage = lazy(() => import('./pages/BlikPage').then(m => ({ default: m.BlikPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
+const CardsPage = lazy(() => import('./pages/CardsPage').then(m => ({ default: m.CardsPage })));
 
 // Minimalny loader — pokazywany podczas ładowania kodu strony
 const PageLoader = () => (
@@ -114,6 +115,16 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/cards"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <CardsPage />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </Suspense>
     </BrowserRouter>
@@ -121,3 +132,4 @@ function App() {
 }
 
 export default App;
+

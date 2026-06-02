@@ -3,7 +3,7 @@ import styles from './Navbar.module.css';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
-import { LogOut, Home, Send, Wallet, Sun, Moon, Settings, List, KeyRound } from 'lucide-react';
+import { LogOut, Home, Send, Wallet, Sun, Moon, Settings, List, KeyRound, CreditCard } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -57,8 +57,15 @@ export const Navbar: React.FC = () => {
             <List size={18} />
             <span>Historia</span>
           </Link>
+          <Link
+            to="/cards"
+            className={`${styles.navItem} ${isActive('/cards') ? styles.active : ''}`}
+          >
+            <CreditCard size={18} />
+            <span>Karty</span>
+          </Link>
         </div>
-        
+
         <div className={styles.userSection}>
           <Link to="/settings" className={styles.themeToggleBtn} title="Ustawienia Konta" style={{ color: 'inherit' }}>
             <Settings size={18} />
@@ -67,7 +74,7 @@ export const Navbar: React.FC = () => {
           <button className={styles.themeToggleBtn} onClick={toggleTheme}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          
+
           <div className={styles.userInfo}>
             <span className={styles.userName}>{user.firstName} {user.lastName}</span>
             <span className={styles.userRole}>{user.role}</span>
@@ -81,3 +88,4 @@ export const Navbar: React.FC = () => {
     </nav>
   );
 };
+

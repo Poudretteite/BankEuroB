@@ -26,23 +26,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Kontroler administracyjny do zarządzania integracjami zewnętrznymi.
+ * Kontroler administracyjny do zarzÄ…dzania integracjami zewnÄ™trznymi.
  * <p>
  * Endpointy:
  * <ul>
  *   <li>Rejestracja BankEuroB w TARGET (Central Bank RTGS)</li>
- *   <li>Podgląd banków zarejestrowanych w TARGET</li>
- *   <li>Zastrzyk płynności w TARGET</li>
- *   <li>Podgląd sesji SEPA Batch</li>
- *   <li>Status przelewów SEPA Instant</li>
- *   <li>Wysyłanie i anulowanie komunikatów SWIFT</li>
+ *   <li>PodglÄ…d bankĂłw zarejestrowanych w TARGET</li>
+ *   <li>Zastrzyk pĹ‚ynnoĹ›ci w TARGET</li>
+ *   <li>PodglÄ…d sesji SEPA Batch</li>
+ *   <li>Status przelewĂłw SEPA Instant</li>
+ *   <li>WysyĹ‚anie i anulowanie komunikatĂłw SWIFT</li>
  * </ul>
  */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Admin Integration", description = "Zarządzanie integracjami zewnętrznymi (TARGET RTGS, SEPA Batch, SEPA Instant, SWIFT)")
+@Tag(name = "Admin Integration", description = "ZarzÄ…dzanie integracjami zewnÄ™trznymi (TARGET RTGS, SEPA Batch, SEPA Instant, SWIFT)")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminIntegrationController {
 
@@ -51,21 +51,21 @@ public class AdminIntegrationController {
     private final SepaInstantClient sepaInstantClient;
     private final SwiftServiceClient swiftClient;
 
-    // ─────────────────────────────────────────────────
-    // TARGET – Banki
-    // ─────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // TARGET â€“ Banki
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @PostMapping("/register-bank")
     @Operation(summary = "Rejestracja BankEuroB w TARGET",
                description = "Rejestruje BankEuroB (lub inny bank) w centralnym systemie TARGET RTGS. " +
                              "Wymaga podania BIC i nazwy banku.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Bank zarejestrowany pomyślnie",
+        @ApiResponse(responseCode = "200", description = "Bank zarejestrowany pomyĹ›lnie",
             content = @Content(examples = @ExampleObject(value = "{\"id\":1,\"bic\":\"BKEBPLPW\",\"name\":\"BankEuroB\",\"is_blocked\":false,\"created_at\":\"2026-05-26T12:00:00Z\"}"))),
-        @ApiResponse(responseCode = "409", description = "Bank o podanym BIC już istnieje",
-            content = @Content(examples = @ExampleObject(value = "{\"error\":\"Bank o BIC BKEBPLPW już istnieje w systemie TARGET\"}"))),
-        @ApiResponse(responseCode = "503", description = "TARGET Service wyłączony",
-            content = @Content(examples = @ExampleObject(value = "{\"error\":\"TARGET Service (RTGS) jest wyłączony na http://localhost:8001\"}")))
+        @ApiResponse(responseCode = "409", description = "Bank o podanym BIC juĹĽ istnieje",
+            content = @Content(examples = @ExampleObject(value = "{\"error\":\"Bank o BIC BKEBPLPW juĹĽ istnieje w systemie TARGET\"}"))),
+        @ApiResponse(responseCode = "503", description = "TARGET Service wyĹ‚Ä…czony",
+            content = @Content(examples = @ExampleObject(value = "{\"error\":\"TARGET Service (RTGS) jest wyĹ‚Ä…czony na http://localhost:8001\"}")))
     })
     public ResponseEntity<?> registerBank(@RequestBody BankCreateRequest request) {
         log.info("Rejestracja banku w TARGET: BIC={}, name={}", request.getBic(), request.getName());
@@ -75,180 +75,180 @@ public class AdminIntegrationController {
         } catch (ResourceAccessException e) {
             log.error("TARGET Service unavailable: {}", e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error",
-                "TARGET Service (RTGS) jest wyłączony. Uruchom serwis na porcie 8001."));
+                "TARGET Service (RTGS) jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8001."));
         } catch (Exception e) {
-            log.error("Błąd rejestracji banku w TARGET: {}", e.getMessage());
+            log.error("BĹ‚Ä…d rejestracji banku w TARGET: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/target/banks")
-    @Operation(summary = "Lista banków w TARGET",
-               description = "Pobiera listę wszystkich banków zarejestrowanych w systemie TARGET RTGS.")
+    @Operation(summary = "Lista bankĂłw w TARGET",
+               description = "Pobiera listÄ™ wszystkich bankĂłw zarejestrowanych w systemie TARGET RTGS.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Lista banków pobrana pomyślnie"),
-        @ApiResponse(responseCode = "503", description = "TARGET Service wyłączony")
+        @ApiResponse(responseCode = "200", description = "Lista bankĂłw pobrana pomyĹ›lnie"),
+        @ApiResponse(responseCode = "503", description = "TARGET Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> getTargetBanks() {
-        log.info("Pobieranie listy banków z TARGET");
+        log.info("Pobieranie listy bankĂłw z TARGET");
         try {
             List<BankResponse> banks = targetClient.getBanks();
             return ResponseEntity.ok(banks);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "TARGET Service (RTGS) jest wyłączony. Uruchom serwis na porcie 8001."));
+                "TARGET Service (RTGS) jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8001."));
         } catch (Exception e) {
-            log.error("Błąd pobierania banków z TARGET: {}", e.getMessage());
+            log.error("BĹ‚Ä…d pobierania bankĂłw z TARGET: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/target/banks/{bic}")
-    @Operation(summary = "Szczegóły banku w TARGET",
-               description = "Pobiera szczegółowe informacje o banku zarejestrowanym w TARGET, " +
-                             "w tym listę kont settlement.")
+    @Operation(summary = "SzczegĂłĹ‚y banku w TARGET",
+               description = "Pobiera szczegĂłĹ‚owe informacje o banku zarejestrowanym w TARGET, " +
+                             "w tym listÄ™ kont settlement.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Szczegóły banku pobrane pomyślnie"),
+        @ApiResponse(responseCode = "200", description = "SzczegĂłĹ‚y banku pobrane pomyĹ›lnie"),
         @ApiResponse(responseCode = "404", description = "Bank nie znaleziony"),
-        @ApiResponse(responseCode = "503", description = "TARGET Service wyłączony")
+        @ApiResponse(responseCode = "503", description = "TARGET Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> getTargetBankDetails(@PathVariable String bic) {
-        log.info("Pobieranie szczegółów banku z TARGET: BIC={}", bic);
+        log.info("Pobieranie szczegĂłĹ‚Ăłw banku z TARGET: BIC={}", bic);
         try {
             BankDetailResponse bank = targetClient.getBank(bic);
             return ResponseEntity.ok(bank);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "TARGET Service (RTGS) jest wyłączony. Uruchom serwis na porcie 8001."));
+                "TARGET Service (RTGS) jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8001."));
         } catch (Exception e) {
-            log.error("Błąd pobierania banku {} z TARGET: {}", bic, e.getMessage());
+            log.error("BĹ‚Ä…d pobierania banku {} z TARGET: {}", bic, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/target/banks/{bic}/block")
     @Operation(summary = "Blokada banku w TARGET",
-               description = "Blokuje bank w systemie TARGET, uniemożliwiając mu dokonywanie rozliczeń.")
+               description = "Blokuje bank w systemie TARGET, uniemoĹĽliwiajÄ…c mu dokonywanie rozliczeĹ„.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Bank zablokowany pomyślnie"),
-        @ApiResponse(responseCode = "503", description = "TARGET Service wyłączony")
+        @ApiResponse(responseCode = "200", description = "Bank zablokowany pomyĹ›lnie"),
+        @ApiResponse(responseCode = "503", description = "TARGET Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> blockTargetBank(@PathVariable String bic) {
         log.info("Blokowanie banku w TARGET: BIC={}", bic);
         try {
             targetClient.blockBank(bic);
-            return ResponseEntity.ok(Map.of("message", "Bank " + bic + " został zablokowany w systemie TARGET"));
+            return ResponseEntity.ok(Map.of("message", "Bank " + bic + " zostaĹ‚ zablokowany w systemie TARGET"));
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "TARGET Service (RTGS) jest wyłączony. Uruchom serwis na porcie 8001."));
+                "TARGET Service (RTGS) jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8001."));
         } catch (Exception e) {
-            log.error("Błąd blokowania banku {} w TARGET: {}", bic, e.getMessage());
+            log.error("BĹ‚Ä…d blokowania banku {} w TARGET: {}", bic, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/target/banks/{bic}/unblock")
     @Operation(summary = "Odblokowanie banku w TARGET",
-               description = "Odblokowuje bank w systemie TARGET, przywracając mu możliwość rozliczeń.")
+               description = "Odblokowuje bank w systemie TARGET, przywracajÄ…c mu moĹĽliwoĹ›Ä‡ rozliczeĹ„.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Bank odblokowany pomyślnie"),
-        @ApiResponse(responseCode = "503", description = "TARGET Service wyłączony")
+        @ApiResponse(responseCode = "200", description = "Bank odblokowany pomyĹ›lnie"),
+        @ApiResponse(responseCode = "503", description = "TARGET Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> unblockTargetBank(@PathVariable String bic) {
         log.info("Odblokowywanie banku w TARGET: BIC={}", bic);
         try {
             targetClient.unblockBank(bic);
-            return ResponseEntity.ok(Map.of("message", "Bank " + bic + " został odblokowany w systemie TARGET"));
+            return ResponseEntity.ok(Map.of("message", "Bank " + bic + " zostaĹ‚ odblokowany w systemie TARGET"));
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "TARGET Service (RTGS) jest wyłączony. Uruchom serwis na porcie 8001."));
+                "TARGET Service (RTGS) jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8001."));
         } catch (Exception e) {
-            log.error("Błąd odblokowywania banku {} w TARGET: {}", bic, e.getMessage());
+            log.error("BĹ‚Ä…d odblokowywania banku {} w TARGET: {}", bic, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ─────────────────────────────────────────────────
-    // TARGET – Płynność
-    // ─────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // TARGET â€“ PĹ‚ynnoĹ›Ä‡
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @PostMapping("/target/liquidity")
-    @Operation(summary = "Zastrzyk płynności w TARGET",
-               description = "Wpłaca środki na konto settlement banku w systemie TARGET RTGS " +
-                             "w celu zwiększenia płynności międzybankowej.")
+    @Operation(summary = "Zastrzyk pĹ‚ynnoĹ›ci w TARGET",
+               description = "WpĹ‚aca Ĺ›rodki na konto settlement banku w systemie TARGET RTGS " +
+                             "w celu zwiÄ™kszenia pĹ‚ynnoĹ›ci miÄ™dzybankowej.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Zastrzyk płynności wykonany pomyślnie",
+        @ApiResponse(responseCode = "200", description = "Zastrzyk pĹ‚ynnoĹ›ci wykonany pomyĹ›lnie",
             content = @Content(examples = @ExampleObject(value = "{\"transfer_id\":\"LIQ-20260526-0001\",\"bank_bic\":\"BKEBPLPW\",\"amount\":1000000.00,\"new_balance\":2500000.00}"))),
-        @ApiResponse(responseCode = "503", description = "TARGET Service wyłączony")
+        @ApiResponse(responseCode = "503", description = "TARGET Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> injectLiquidity(@RequestBody LiquidityInjectionRequest request) {
-        log.info("Zastrzyk płynności w TARGET: BIC={}, amount={} {}", request.getBankBic(), request.getAmount(), request.getCurrency());
+        log.info("Zastrzyk pĹ‚ynnoĹ›ci w TARGET: BIC={}, amount={} {}", request.getBankBic(), request.getAmount(), request.getCurrency());
         try {
             LiquidityInjectionResponse response = targetClient.injectLiquidity(request);
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "TARGET Service (RTGS) jest wyłączony. Uruchom serwis na porcie 8001."));
+                "TARGET Service (RTGS) jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8001."));
         } catch (Exception e) {
-            log.error("Błąd zastrzyku płynności w TARGET: {}", e.getMessage());
+            log.error("BĹ‚Ä…d zastrzyku pĹ‚ynnoĹ›ci w TARGET: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ─────────────────────────────────────────────────
-    // SEPA Batch – Sesje
-    // ─────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // SEPA Batch â€“ Sesje
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/sepa/sessions")
     @Operation(summary = "Lista sesji SEPA Batch",
-               description = "Pobiera listę sesji rozliczeniowych SEPA Batch (clearing sessions).")
+               description = "Pobiera listÄ™ sesji rozliczeniowych SEPA Batch (clearing sessions).")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Lista sesji pobrana pomyślnie"),
-        @ApiResponse(responseCode = "503", description = "SEPA Batch Service wyłączony")
+        @ApiResponse(responseCode = "200", description = "Lista sesji pobrana pomyĹ›lnie"),
+        @ApiResponse(responseCode = "503", description = "SEPA Batch Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> getSepaBatchSessions() {
         log.info("Pobieranie sesji SEPA Batch");
         try {
-            // SepaBatchClient nie ma jeszcze metody getSessions – wywołujemy GET /sessions przez RestTemplate
+            // SepaBatchClient nie ma jeszcze metody getSessions â€“ wywoĹ‚ujemy GET /sessions przez RestTemplate
             String response = sepaBatchClient.getSessions();
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SEPA Batch Service jest wyłączony. Uruchom serwis na porcie 8002."));
+                "SEPA Batch Service jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8002."));
         } catch (Exception e) {
-            log.error("Błąd pobierania sesji SEPA Batch: {}", e.getMessage());
+            log.error("BĹ‚Ä…d pobierania sesji SEPA Batch: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/sepa/sessions/{sessionId}")
-    @Operation(summary = "Szczegóły sesji SEPA Batch",
-               description = "Pobiera szczegółowe informacje o konkretnej sesji rozliczeniowej SEPA Batch.")
+    @Operation(summary = "SzczegĂłĹ‚y sesji SEPA Batch",
+               description = "Pobiera szczegĂłĹ‚owe informacje o konkretnej sesji rozliczeniowej SEPA Batch.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Szczegóły sesji pobrane pomyślnie"),
+        @ApiResponse(responseCode = "200", description = "SzczegĂłĹ‚y sesji pobrane pomyĹ›lnie"),
         @ApiResponse(responseCode = "404", description = "Sesja nie znaleziona"),
-        @ApiResponse(responseCode = "503", description = "SEPA Batch Service wyłączony")
+        @ApiResponse(responseCode = "503", description = "SEPA Batch Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> getSepaBatchSessionDetails(@PathVariable String sessionId) {
-        log.info("Pobieranie szczegółów sesji SEPA Batch: {}", sessionId);
+        log.info("Pobieranie szczegĂłĹ‚Ăłw sesji SEPA Batch: {}", sessionId);
         try {
             String response = sepaBatchClient.getSessionDetails(sessionId);
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SEPA Batch Service jest wyłączony. Uruchom serwis na porcie 8002."));
+                "SEPA Batch Service jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8002."));
         } catch (Exception e) {
-            log.error("Błąd pobierania sesji {} SEPA Batch: {}", sessionId, e.getMessage());
+            log.error("BĹ‚Ä…d pobierania sesji {} SEPA Batch: {}", sessionId, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/sepa/sessions/{sessionId}/close")
-    @Operation(summary = "Zamknięcie sesji SEPA Batch (netting)",
-               description = "Zamyka sesję rozliczeniową i wykonuje multilateral netting.")
+    @Operation(summary = "ZamkniÄ™cie sesji SEPA Batch (netting)",
+               description = "Zamyka sesjÄ™ rozliczeniowÄ… i wykonuje multilateral netting.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Sesja zamknięta, netting wykonany"),
-        @ApiResponse(responseCode = "503", description = "SEPA Batch Service wyłączony")
+        @ApiResponse(responseCode = "200", description = "Sesja zamkniÄ™ta, netting wykonany"),
+        @ApiResponse(responseCode = "503", description = "SEPA Batch Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> closeSepaBatchSession(@PathVariable String sessionId) {
         log.info("Zamykanie sesji SEPA Batch: {}", sessionId);
@@ -257,25 +257,25 @@ public class AdminIntegrationController {
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SEPA Batch Service jest wyłączony. Uruchom serwis na porcie 8002."));
+                "SEPA Batch Service jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8002."));
         } catch (Exception e) {
-            log.error("Błąd zamykania sesji {} SEPA Batch: {}", sessionId, e.getMessage());
+            log.error("BĹ‚Ä…d zamykania sesji {} SEPA Batch: {}", sessionId, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ─────────────────────────────────────────────────
-    // SEPA Instant – Status przelewów
-    // ─────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // SEPA Instant â€“ Status przelewĂłw
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @GetMapping("/sepa/instant/{transferId}")
     @Operation(summary = "Status przelewu SEPA Instant",
                description = "Sprawdza status przelewu natychmiastowego w SEPA Instant Service.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Status przelewu pobrany pomyślnie",
+        @ApiResponse(responseCode = "200", description = "Status przelewu pobrany pomyĹ›lnie",
             content = @Content(examples = @ExampleObject(value = "{\"transfer_id\":\"INST-20260526-0001\",\"status\":\"COMPLETED\",\"processed_at\":\"2026-05-26T12:00:00Z\",\"error_message\":null}"))),
         @ApiResponse(responseCode = "404", description = "Przelew nie znaleziony"),
-        @ApiResponse(responseCode = "503", description = "SEPA Instant Service wyłączony")
+        @ApiResponse(responseCode = "503", description = "SEPA Instant Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> getInstantTransferStatus(@PathVariable String transferId) {
         log.info("Sprawdzanie statusu SEPA Instant: {}", transferId);
@@ -284,70 +284,70 @@ public class AdminIntegrationController {
             return ResponseEntity.ok(status);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SEPA Instant Service jest wyłączony. Uruchom serwis na porcie 8003."));
+                "SEPA Instant Service jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8003."));
         } catch (Exception e) {
-            log.error("Błąd pobierania statusu SEPA Instant {}: {}", transferId, e.getMessage());
+            log.error("BĹ‚Ä…d pobierania statusu SEPA Instant {}: {}", transferId, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/sepa/instant")
-    @Operation(summary = "Lista przelewów SEPA Instant",
-               description = "Pobiera listę wszystkich przelewów natychmiastowych z SEPA Instant Service.")
+    @Operation(summary = "Lista przelewĂłw SEPA Instant",
+               description = "Pobiera listÄ™ wszystkich przelewĂłw natychmiastowych z SEPA Instant Service.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Lista przelewów pobrana pomyślnie"),
-        @ApiResponse(responseCode = "503", description = "SEPA Instant Service wyłączony")
+        @ApiResponse(responseCode = "200", description = "Lista przelewĂłw pobrana pomyĹ›lnie"),
+        @ApiResponse(responseCode = "503", description = "SEPA Instant Service wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> getInstantTransfers() {
-        log.info("Pobieranie listy przelewów SEPA Instant");
+        log.info("Pobieranie listy przelewĂłw SEPA Instant");
         try {
             String response = sepaInstantClient.getTransfers();
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SEPA Instant Service jest wyłączony. Uruchom serwis na porcie 8003."));
+                "SEPA Instant Service jest wyĹ‚Ä…czony. Uruchom serwis na porcie 8003."));
         } catch (Exception e) {
-            log.error("Błąd pobierania listy SEPA Instant: {}", e.getMessage());
+            log.error("BĹ‚Ä…d pobierania listy SEPA Instant: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ─────────────────────────────────────────────────
-    // SWIFT Middleware – Komunikaty
-    // ─────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // SWIFT Middleware â€“ Komunikaty
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @PostMapping("/swift/message")
-    @Operation(summary = "Wysłanie komunikatu SWIFT (XML)",
-               description = "Wysyła komunikat XML w formacie pacs.008.001.08 do SWIFT Middleware. " +
-                             "Wymaga podania treści XML w body żądania (Content-Type: application/xml).")
+    @Operation(summary = "WysĹ‚anie komunikatu SWIFT (XML)",
+               description = "WysyĹ‚a komunikat XML w formacie pacs.008.001.08 do SWIFT Middleware. " +
+                             "Wymaga podania treĹ›ci XML w body ĹĽÄ…dania (Content-Type: application/xml).")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Komunikat SWIFT przyjęty przez middleware",
+        @ApiResponse(responseCode = "200", description = "Komunikat SWIFT przyjÄ™ty przez middleware",
             content = @Content(examples = @ExampleObject(value = "{\"status\":\"accepted\",\"message_id\":\"MSG-1001\",\"uetr\":\"11111111-1111-4111-8111-111111111111\",\"receiver_bank\":\"Bank UK 1\",\"route\":[\"PLBKPL01XXX\",\"UKBKGB01XXX\"],\"estimated_seconds\":1.0,\"cancel_window_seconds\":5}"))),
-        @ApiResponse(responseCode = "503", description = "SWIFT Middleware wyłączony")
+        @ApiResponse(responseCode = "503", description = "SWIFT Middleware wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> sendSwiftMessage(@RequestBody String xmlMessage) {
-        log.info("Wysyłanie komunikatu SWIFT do middleware");
+        log.info("WysyĹ‚anie komunikatu SWIFT do middleware");
         try {
             SwiftMessageResponse response = swiftClient.submitSwiftMessage(xmlMessage);
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SWIFT Middleware jest wyłączony. Uruchom serwis na porcie 3000."));
+                "SWIFT Middleware jest wyĹ‚Ä…czony. Uruchom serwis na porcie 3000."));
         } catch (Exception e) {
-            log.error("Błąd wysyłania komunikatu SWIFT: {}", e.getMessage());
+            log.error("BĹ‚Ä…d wysyĹ‚ania komunikatu SWIFT: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/swift/cancel/{uetr}")
     @Operation(summary = "Anulowanie komunikatu SWIFT",
-               description = "Anuluje oczekujący komunikat SWIFT w middleware po UETR. " +
-                             "Możliwe tylko w oknie anulowania (domyślnie 5 sekund).")
+               description = "Anuluje oczekujÄ…cy komunikat SWIFT w middleware po UETR. " +
+                             "MoĹĽliwe tylko w oknie anulowania (domyĹ›lnie 5 sekund).")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Komunikat anulowany",
             content = @Content(examples = @ExampleObject(value = "{\"status\":\"cancelled\",\"uetr\":\"11111111-1111-4111-8111-111111111111\"}"))),
-        @ApiResponse(responseCode = "404", description = "Nie znaleziono lub okno anulowania zamknięte"),
-        @ApiResponse(responseCode = "503", description = "SWIFT Middleware wyłączony")
+        @ApiResponse(responseCode = "404", description = "Nie znaleziono lub okno anulowania zamkniÄ™te"),
+        @ApiResponse(responseCode = "503", description = "SWIFT Middleware wyĹ‚Ä…czony")
     })
     public ResponseEntity<?> cancelSwiftMessage(@PathVariable String uetr) {
         log.info("Anulowanie komunikatu SWIFT: UETR={}", uetr);
@@ -356,9 +356,9 @@ public class AdminIntegrationController {
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
-                "SWIFT Middleware jest wyłączony. Uruchom serwis na porcie 3000."));
+                "SWIFT Middleware jest wyĹ‚Ä…czony. Uruchom serwis na porcie 3000."));
         } catch (Exception e) {
-            log.error("Błąd anulowania komunikatu SWIFT {}: {}", uetr, e.getMessage());
+            log.error("BĹ‚Ä…d anulowania komunikatu SWIFT {}: {}", uetr, e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
