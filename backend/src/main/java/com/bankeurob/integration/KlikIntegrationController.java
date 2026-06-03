@@ -1,5 +1,6 @@
 package com.bankeurob.integration;
 
+import com.bankeurob.integration.klik.BlikService;
 import com.bankeurob.integration.klik.KlikServiceClient;
 import com.bankeurob.integration.klik.config.KlikConfig;
 import com.bankeurob.integration.klik.dto.*;
@@ -13,9 +14,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.ResourceAccessException;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,7 +26,7 @@ import java.util.Map;
  * <p>
  * Endpointy:
  * <ul>
- *   <li><b>C2B:</b> Generowanie kodu, potwierdzanie płatności, status płatności</li>
+ *   <li><b>C2B:</b> Generowanie kodu, oczekujące transakcje, autoryzacja PIN-em, odrzucenie</li>
  *   <li><b>P2P:</b> Rejestracja aliasu, lookup aliasu, usunięcie aliasu</li>
  *   <li><b>Webhook:</b> Odbieranie żądań autoryzacji od KLIK</li>
  * </ul>
@@ -40,40 +43,113 @@ public class KlikIntegrationController {
 
     private final KlikServiceClient klikServiceClient;
     private final KlikConfig klikConfig;
+    private final BlikService blikService;
 
     // ─────────────────────────────────────────────────
-    // C2B — Generowanie kodu KLIK
+    // C2B — Generowanie kodu BLIK
     // ─────────────────────────────────────────────────
 
     @PostMapping("/codes/generate")
-    @Operation(summary = "Generuj kod KLIK",
-               description = "Generuje 6-cyfrowy kod KLIK dla zalogowanego klienta. " +
+    @Operation(summary = "Generuj kod BLIK",
+               description = "Generuje 6-cyfrowy kod BLIK dla zalogowanego klienta. " +
                              "Kod ważny 120s, jednorazowy. Klient wpisuje go u agenta (sklepu) aby zainicjować płatność.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Kod wygenerowany pomyślnie",
             content = @Content(examples = @ExampleObject(value = "{\"code\":\"123456\",\"expires_in\":120,\"expires_at\":\"2026-06-02T14:00:00Z\"}"))),
         @ApiResponse(responseCode = "503", description = "System KLIK niedostępny")
     })
-    public ResponseEntity<?> generateCode(@RequestParam(defaultValue = "PL") String zone) {
-        log.info("Generowanie kodu KLIK: zone={}", zone);
+    public ResponseEntity<?> generateCode(Authentication authentication) {
+        log.info("Generowanie kodu BLIK dla zalogowanego klienta");
         try {
-            KlikGenerateCodeResponse response = klikServiceClient.generateCode("bankeurob_user", zone);
+            KlikGenerateCodeResponse response = blikService.generateCode(authentication);
             return ResponseEntity.ok(response);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
                 "System KLIK jest wyłączony. Uruchom serwis na porcie 8000."));
         } catch (Exception e) {
-            log.error("Błąd generowania kodu KLIK: {}", e.getMessage());
+            log.error("Błąd generowania kodu BLIK: {}", e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
         }
     }
 
     // ─────────────────────────────────────────────────
-    // C2B — Status płatności
+    // C2B — Oczekujące transakcje (polling z frontendu)
+    // ─────────────────────────────────────────────────
+
+    @GetMapping("/pending-transactions")
+    @Operation(summary = "Oczekujące transakcje BLIK",
+               description = "Zwraca listę transakcji BLIK oczekujących na autoryzację PIN-em " +
+                             "dla zalogowanego klienta. Frontend polluje ten endpoint co kilka sekund.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Lista oczekujących transakcji")
+    })
+    public ResponseEntity<List<PendingTransactionDto>> getPendingTransactions(Authentication authentication) {
+        List<PendingTransactionDto> pending = blikService.getPendingTransactions(authentication);
+        return ResponseEntity.ok(pending);
+    }
+
+    // ─────────────────────────────────────────────────
+    // C2B — Autoryzacja PIN-em (zatwierdzenie płatności)
+    // ─────────────────────────────────────────────────
+
+    @PostMapping("/payments/authorize")
+    @Operation(summary = "Autoryzuj płatność BLIK PIN-em",
+               description = "Weryfikuje PIN klienta i autoryzuje transakcję BLIK. " +
+                             "W przypadku sukcesu: odpisuje środki z konta i wysyła ACCEPTED do KLIK. " +
+                             "W przypadku błędu: zwraca błąd bez odpisania środków.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Wynik autoryzacji (success=true/false)"),
+        @ApiResponse(responseCode = "503", description = "System KLIK niedostępny")
+    })
+    public ResponseEntity<?> authorizePayment(
+            @RequestParam String klikTransactionId,
+            @RequestParam String pin,
+            Authentication authentication) {
+        log.info("Autoryzacja płatności BLIK: klikTransactionId={}", klikTransactionId);
+        try {
+            BlikConfirmResult result = blikService.authorizeTransaction(klikTransactionId, pin, authentication);
+            if (result.isSuccess()) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.badRequest().body(result);
+            }
+        } catch (Exception e) {
+            log.error("Błąd autoryzacji płatności BLIK: {}", e.getMessage());
+            return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // C2B — Odrzucenie transakcji przez klienta
+    // ─────────────────────────────────────────────────
+
+    @PostMapping("/payments/reject")
+    @Operation(summary = "Odrzuć płatność BLIK",
+               description = "Odrzuca transakcję BLIK bez autoryzacji PIN-em. " +
+                             "Wysyła REJECTED do KLIK z powodem USER_DECLINED.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Transakcja odrzucona"),
+        @ApiResponse(responseCode = "503", description = "System KLIK niedostępny")
+    })
+    public ResponseEntity<?> rejectPayment(
+            @RequestParam String klikTransactionId,
+            Authentication authentication) {
+        log.info("Odrzucenie płatności BLIK: klikTransactionId={}", klikTransactionId);
+        try {
+            BlikConfirmResult result = blikService.rejectTransaction(klikTransactionId, authentication);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Błąd odrzucania płatności BLIK: {}", e.getMessage());
+            return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // C2B — Status płatności (z KLIK)
     // ─────────────────────────────────────────────────
 
     @GetMapping("/payments/status/{transactionId}")
-    @Operation(summary = "Status płatności KLIK",
+    @Operation(summary = "Status płatności BLIK",
                description = "Sprawdza status płatności C2B w systemie KLIK.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Status płatności pobrany pomyślnie"),
@@ -81,7 +157,7 @@ public class KlikIntegrationController {
         @ApiResponse(responseCode = "503", description = "System KLIK niedostępny")
     })
     public ResponseEntity<?> getPaymentStatus(@PathVariable String transactionId) {
-        log.info("Sprawdzanie statusu płatności KLIK: transactionId={}", transactionId);
+        log.info("Sprawdzanie statusu płatności BLIK: transactionId={}", transactionId);
         try {
             KlikPaymentStatusResponse response = klikServiceClient.getPaymentStatus(transactionId);
             return ResponseEntity.ok(response);
@@ -89,40 +165,9 @@ public class KlikIntegrationController {
             return ResponseEntity.status(503).body(Map.of("error",
                 "System KLIK jest wyłączony. Uruchom serwis na porcie 8000."));
         } catch (Exception e) {
-            log.error("Błąd pobierania statusu płatności KLIK: {}", e.getMessage());
+            log.error("Błąd pobierania statusu płatności BLIK: {}", e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error",
                 "System KLIK jest wyłączony: " + e.getMessage()));
-        }
-    }
-
-    // ─────────────────────────────────────────────────
-    // C2B — Potwierdzenie płatności (wywoływane po autoryzacji klienta)
-    // ─────────────────────────────────────────────────
-
-    @PostMapping("/payments/confirm")
-    @Operation(summary = "Potwierdź/odrzuć płatność KLIK",
-               description = "Potwierdza (ACCEPTED) lub odrzuca (REJECTED) płatność C2B " +
-                             "po autoryzacji klienta w aplikacji bankowej.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Płatność potwierdzona pomyślnie"),
-        @ApiResponse(responseCode = "409", description = "Przedwczesne potwierdzenie (brak autoryzacji)"),
-        @ApiResponse(responseCode = "503", description = "System KLIK niedostępny")
-    })
-    public ResponseEntity<?> confirmPayment(
-            @RequestParam String transactionId,
-            @RequestParam String status,
-            @RequestParam(required = false) String rejectReason) {
-        log.info("Potwierdzanie płatności KLIK: transactionId={}, status={}", transactionId, status);
-        try {
-            KlikConfirmPaymentResponse response = klikServiceClient.confirmPayment(
-                    transactionId, status, rejectReason);
-            return ResponseEntity.ok(response);
-        } catch (ResourceAccessException e) {
-            return ResponseEntity.status(503).body(Map.of("error",
-                "System KLIK jest wyłączony. Uruchom serwis na porcie 8000."));
-        } catch (Exception e) {
-            log.error("Błąd potwierdzania płatności KLIK: {}", e.getMessage());
-            return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -133,8 +178,8 @@ public class KlikIntegrationController {
     @PostMapping("/webhook/authorize")
     @Operation(summary = "Webhook autoryzacji od KLIK",
                description = "Odbiera żądanie autoryzacji płatności od KLIK. " +
-                             "Bank musi pokazać klientowi push z prośbą o autoryzację PINem. " +
-                             "Decyzja klienta jest przekazywana do KLIK przez POST /payments/confirm.")
+                             "Zapisuje transakcję w DB. Klient zobaczy ją na liście oczekujących transakcji " +
+                             "i będzie mógł autoryzować PIN-em lub odrzucić.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Żądanie autoryzacji przyjęte"),
         @ApiResponse(responseCode = "503", description = "Błąd przetwarzania")
@@ -145,12 +190,8 @@ public class KlikIntegrationController {
                 request.getAmount(), request.getCurrency());
 
         try {
-            // TODO: Wysłać push notification do klienta z prośbą o autoryzację PINem
-            log.info("Żądanie autoryzacji dla użytkownika {} na kwotę {} {} w sklepie {}",
-                    request.getUserId(), request.getAmount(),
-                    request.getCurrency(), request.getMerchantName());
-
-            return ResponseEntity.ok(new KlikAuthorizeResponse(true, true));
+            KlikAuthorizeResponse response = blikService.handleAuthorizeWebhook(request);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Błąd przetwarzania webhooka autoryzacji KLIK: {}", e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));

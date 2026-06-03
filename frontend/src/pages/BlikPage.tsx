@@ -25,16 +25,28 @@ import axiosClient from '../api/axiosClient';
 // ─── Typy ─────────────────────────────────────────────────────────────────
 interface PendingTransaction {
   id: string;
-  merchantName: string;
+  klik_transaction_id: string;
+  merchant_name: string;
   amount: number;
-  title: string;
-  timestamp: string;
+  currency: string;
+  status: string;
+  received_at: string;
+  expires_at: string;
+  seconds_left: number;
+}
+
+interface BlikConfirmResult {
+  success: boolean;
+  reference_number: string;
+  amount: number;
+  currency: string;
+  merchant_name: string;
+  message: string;
 }
 
 // ─── Pomocniczy hook: pokazuje cyfrę przez 2s, potem maskuje ──────────────
 function usePinVisibility() {
   const [visibleUntil, setVisibleUntil] = useState<number[]>([]);
-  // Tick wymusza re-render co 500ms, aby przeterminowane cyfry się zamaskowały
   const [, setTick] = useState(0);
 
   const revealDigit = (index: number) => {
@@ -49,7 +61,6 @@ function usePinVisibility() {
     return (visibleUntil[index] ?? 0) > Date.now();
   };
 
-  // Tick co 500ms – wymusza re-render, aby ukryć cyfry po upływie 2s
   useEffect(() => {
     const interval = setInterval(() => {
       setTick((prev) => prev + 1);
@@ -67,17 +78,19 @@ export const BlikPage: React.FC = () => {
 
   const [step, setStep] = useState<'code' | 'pending' | 'confirm' | 'processing' | 'success' | 'error'>('code');
   const [blikCode, setBlikCode] = useState('');
+  const [codeExpiresIn, setCodeExpiresIn] = useState(120);
   const [countdown, setCountdown] = useState(120);
   const [errorMessage, setErrorMessage] = useState('');
   const [txRef, setTxRef] = useState('');
   const [pin, setPin] = useState<string[]>(['', '', '', '']);
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Widzialność cyfr PIN – pokazuje cyfrę przez 2s po wpisaniu
+  // Widzialność cyfr PIN
   const { revealDigit: revealPinDigit, isVisible: isPinVisible } = usePinVisibility();
 
-  // ── Stan dla PIN setup w BlikPage ──────────────────────────────────────
+  // ── Stan dla PIN setup ─────────────────────────────────────────────────
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [setupPin, setSetupPin] = useState<string[]>(['', '', '', '']);
   const [setupConfirmPin, setSetupConfirmPin] = useState<string[]>(['', '', '', '']);
@@ -102,7 +115,6 @@ export const BlikPage: React.FC = () => {
         }
       } catch (err) {
         console.error('Błąd sprawdzania statusu PIN-u', err);
-        // W razie błędu – pokaż setup na wszelki wypadek
         setShowPinSetup(true);
       } finally {
         setInitialLoading(false);
@@ -111,22 +123,30 @@ export const BlikPage: React.FC = () => {
     checkBlikPinStatus();
   }, [setHasBlikPin]);
 
-  // ── Generowanie kodu BLIK ──────────────────────────────────────────────
-  const generateBlikCode = useCallback(() => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setBlikCode(code);
-    setCountdown(120);
-    setStep('code');
+  // ── Generowanie kodu BLIK przez API ────────────────────────────────────
+  const generateBlikCode = useCallback(async () => {
+    try {
+      const response = await axiosClient.post('/klik/codes/generate');
+      const data = response.data;
+      setBlikCode(data.code);
+      setCodeExpiresIn(data.expires_in);
+      setCountdown(data.expires_in);
+      setStep('code');
+    } catch (err: any) {
+      console.error('Błąd generowania kodu BLIK', err);
+      setErrorMessage(err.response?.data?.error || 'Nie udało się wygenerować kodu BLIK');
+      setStep('error');
+    }
   }, []);
 
-  // Generuj kod przy pierwszym renderze (tylko jeśli PIN istnieje i nie ma setupu)
+  // Generuj kod przy pierwszym renderze
   useEffect(() => {
     if (!initialLoading && getHasBlikPin() && !showPinSetup) {
       generateBlikCode();
     }
   }, [initialLoading, getHasBlikPin, showPinSetup, generateBlikCode]);
 
-  // ── Odliczanie 2 minut ─────────────────────────────────────────────────
+  // ── Odliczanie czasu kodu ──────────────────────────────────────────────
   useEffect(() => {
     if (step !== 'code' && step !== 'pending') return;
     if (countdown <= 0) {
@@ -141,23 +161,48 @@ export const BlikPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [step, countdown, generateBlikCode]);
 
-  // ── Symulacja nadejścia transakcji (po wygenerowaniu kodu) ────────────
+  // ── Polling oczekujących transakcji z backendu ─────────────────────────
   useEffect(() => {
-    if (step !== 'code' || !blikCode) return;
+    if (step !== 'code') {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
 
-    const timer = setTimeout(() => {
-      setPendingTx({
-        id: 'TXN' + Date.now().toString().slice(-8),
-        merchantName: 'Zakupy Online Sp. z o.o.',
-        amount: parseFloat((Math.random() * 500 + 10).toFixed(2)),
-        title: 'Zamówienie #' + Math.floor(Math.random() * 10000),
-        timestamp: new Date().toLocaleTimeString('pl-PL'),
-      });
-      setStep('pending');
-    }, 5000 + Math.random() * 8000);
+    const pollPendingTransactions = async () => {
+      try {
+        const response = await axiosClient.get('/klik/pending-transactions');
+        const transactions: PendingTransaction[] = response.data;
 
-    return () => clearTimeout(timer);
-  }, [blikCode, step]);
+        if (transactions.length > 0) {
+          const tx = transactions[0]; // weź pierwszą oczekującą
+          setPendingTx(tx);
+          setStep('pending');
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+          }
+        }
+      } catch (err) {
+        console.error('Błąd pollingu transakcji BLIK', err);
+      }
+    };
+
+    // Polluj co 3 sekundy
+    pollingRef.current = setInterval(pollPendingTransactions, 3000);
+
+    // Od razu sprawdź przy starcie
+    pollPendingTransactions();
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [step]);
 
   // ── Obsługa PIN (4 cyfry) z widzialnością ──────────────────────────────
   const handlePinChange = (index: number, value: string) => {
@@ -167,7 +212,7 @@ export const BlikPage: React.FC = () => {
     setPin(newPin);
 
     if (value) {
-      revealPinDigit(index); // pokaż cyfrę przez 2s
+      revealPinDigit(index);
       if (index < 3) {
         pinRefs.current[index + 1]?.focus();
       }
@@ -177,54 +222,65 @@ export const BlikPage: React.FC = () => {
   const handlePinKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace') {
       if (pin[index]) {
-        // Usuń bieżącą cyfrę
         const newPin = [...pin];
         newPin[index] = '';
         setPin(newPin);
       } else if (index > 0) {
-        // Przejdź do poprzedniego pola
         pinRefs.current[index - 1]?.focus();
       }
     }
   };
 
-  // ── Potwierdzenie PIN-em (weryfikacja przez API) ───────────────────────
+  // ── Autoryzacja PIN-em przez API ───────────────────────────────────────
   const confirmWithPin = async () => {
     const pinStr = pin.join('');
-    if (pinStr.length !== 4) return;
-
-    // Weryfikacja PIN-u przez backend: wysyłamy PUT z currentPin = pinStr i newPin = pinStr
-    // Jeśli backend zwróci sukces – PIN jest poprawny
-    try {
-      await axiosClient.put('/customers/me/blik-pin', {
-        currentPin: pinStr,
-        newPin: pinStr,
-      });
-    } catch {
-      // Jeśli backend rzucił błędem – PIN jest nieprawidłowy
-      setErrorMessage('Nieprawidłowy PIN. Spróbuj ponownie.');
-      setPin(['', '', '', '']);
-      setStep('error');
-      return;
-    }
+    if (pinStr.length !== 4 || !pendingTx) return;
 
     setStep('processing');
     setErrorMessage('');
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const mockRef = 'BLK' + Date.now().toString().slice(-8);
-      setTxRef(mockRef);
-      setStep('success');
-    } catch {
-      setErrorMessage('Błąd przetwarzania. Spróbuj ponownie.');
+      const response = await axiosClient.post('/klik/payments/authorize', null, {
+        params: {
+          klikTransactionId: pendingTx.klik_transaction_id,
+          pin: pinStr,
+        },
+      });
+
+      const result: BlikConfirmResult = response.data;
+
+      if (result.success) {
+        setTxRef(result.reference_number);
+        setStep('success');
+      } else {
+        setErrorMessage(result.message || 'Transakcja odrzucona');
+        setPin(['', '', '', '']);
+        setStep('error');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.message
+        || err.response?.data?.error
+        || 'Błąd autoryzacji. Spróbuj ponownie.';
+      setErrorMessage(message);
+      setPin(['', '', '', '']);
       setStep('error');
     }
   };
 
-  // ── Odrzucenie transakcji ──────────────────────────────────────────────
-  const rejectTransaction = () => {
-    setStep('code');
+  // ── Odrzucenie transakcji przez API ────────────────────────────────────
+  const rejectTransaction = async () => {
+    if (!pendingTx) return;
+
+    try {
+      await axiosClient.post('/klik/payments/reject', null, {
+        params: {
+          klikTransactionId: pendingTx.klik_transaction_id,
+        },
+      });
+    } catch (err) {
+      console.error('Błąd odrzucania transakcji', err);
+    }
+
     setPendingTx(null);
     generateBlikCode();
   };
@@ -237,6 +293,7 @@ export const BlikPage: React.FC = () => {
     setTxRef('');
     generateBlikCode();
   };
+
 
   // ── Obsługa PIN setup (4 cyfry) z widzialnością i backspace ────────────
   const handleSetupPinChange = (
@@ -407,21 +464,24 @@ export const BlikPage: React.FC = () => {
           <Building2 size={18} className={styles.txDetailIcon} />
           <div>
             <div className={styles.txDetailLabel}>Odbiorca</div>
-            <div className={styles.txDetailValue}>{pendingTx?.merchantName}</div>
+          <div className={styles.txDetailValue}>{pendingTx?.merchant_name}</div>
+
           </div>
         </div>
         <div className={styles.txDetailRow}>
           <UserIcon size={18} className={styles.txDetailIcon} />
           <div>
             <div className={styles.txDetailLabel}>Tytuł</div>
-            <div className={styles.txDetailValue}>{pendingTx?.title}</div>
+            <div className={styles.txDetailValue}>Płatność BLIK</div>
+
           </div>
         </div>
         <div className={styles.txDetailRow}>
           <Clock size={18} className={styles.txDetailIcon} />
           <div>
             <div className={styles.txDetailLabel}>Czas</div>
-            <div className={styles.txDetailValue}>{pendingTx?.timestamp}</div>
+            <div className={styles.txDetailValue}>{pendingTx?.received_at ? new Date(pendingTx.received_at).toLocaleTimeString('pl-PL') : ''}</div>
+
           </div>
         </div>
         <div className={styles.txDivider} />
@@ -480,7 +540,8 @@ export const BlikPage: React.FC = () => {
       <div className={styles.pinSummary}>
         <div className={styles.pinSummaryRow}>
           <span className={styles.pinSummaryLabel}>Odbiorca</span>
-          <span className={styles.pinSummaryValue}>{pendingTx?.merchantName}</span>
+          <span className={styles.pinSummaryValue}>{pendingTx?.merchant_name}</span>
+
         </div>
         <div className={styles.pinSummaryRow}>
           <span className={styles.pinSummaryLabel}>Kwota</span>
@@ -573,7 +634,8 @@ export const BlikPage: React.FC = () => {
         </div>
         <div className={styles.successRow}>
           <span>Odbiorca</span>
-          <strong>{pendingTx?.merchantName}</strong>
+          <strong>{pendingTx?.merchant_name}</strong>
+
         </div>
       </div>
 

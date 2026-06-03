@@ -15,14 +15,17 @@ import com.bankeurob.security.CustomerUserDetails;
 import com.bankeurob.transfer.dto.TargetIncomingWebhookDto;
 import com.bankeurob.transfer.dto.TransactionDto;
 import com.bankeurob.transfer.dto.TransferRequest;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -42,12 +45,59 @@ public class TransferService {
     private final SwiftXmlGenerator swiftXmlGenerator;
     private final Pain001Generator pain001Generator;
 
+    /**
+     * Waliduje IBAN zgodnie ze standardem MOD-97 (ISO 7064).
+     * Sprawdza długość, dozwolone znaki i sumę kontrolną.
+     */
+    private void validateIban(String iban, String fieldName) {
+        if (iban == null || iban.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " jest wymagany");
+        }
+
+        String clean = iban.replaceAll("\\s+", "").toUpperCase();
+
+        if (clean.length() < 15 || clean.length() > 34) {
+            throw new IllegalArgumentException("Nieprawidłowa długość " + fieldName + ": " + clean.length() + " znaków (oczekiwano 15-34)");
+        }
+
+        if (!clean.matches("[A-Z0-9]+")) {
+            throw new IllegalArgumentException(fieldName + " zawiera niedozwolone znaki. Dozwolone: A-Z, 0-9");
+        }
+
+        // Przeniesienie 4 pierwszych znaków na koniec
+        String rearranged = clean.substring(4) + clean.substring(0, 4);
+
+        // Zamiana liter na cyfry (A=10, B=11, ..., Z=35)
+        StringBuilder numeric = new StringBuilder();
+        for (char c : rearranged.toCharArray()) {
+            if (Character.isLetter(c)) {
+                numeric.append(c - 55);
+            } else {
+                numeric.append(c);
+            }
+        }
+
+        // Sprawdzenie MOD-97
+        BigInteger ibanNumber = new BigInteger(numeric.toString());
+        BigInteger mod97 = ibanNumber.mod(BigInteger.valueOf(97));
+
+        if (!mod97.equals(BigInteger.ONE)) {
+            throw new IllegalArgumentException("Nieprawidłowa suma kontrolna " + fieldName + " (MOD-97)");
+        }
+    }
+
     @Transactional
     public TransactionDto createTransfer(TransferRequest request, Authentication authentication) {
         CustomerUserDetails userDetails = (CustomerUserDetails) authentication.getPrincipal();
 
-        // Pobierz i zweryfikuj konto nadawcy
-        Account senderAccount = accountRepository.findByIban(request.getSenderIban())
+        // Walidacja IBAN nadawcy (MOD-97)
+        validateIban(request.getSenderIban(), "IBAN nadawcy");
+
+        // Walidacja IBAN odbiorcy (MOD-97)
+        validateIban(request.getReceiverIban(), "IBAN odbiorcy");
+
+        // Pobierz i zweryfikuj konto nadawcy (z blokadą pesymistyczną dla bezpieczeństwa współbieżności)
+        Account senderAccount = accountRepository.findByIbanWithLock(request.getSenderIban())
                 .orElseThrow(() -> new RuntimeException("Konto nadawcy nie znalezione: " + request.getSenderIban()));
 
         if (!senderAccount.getCustomer().getId().equals(userDetails.getCustomerId())) {
@@ -56,6 +106,11 @@ public class TransferService {
 
         if (!senderAccount.getIsActive()) {
             throw new IllegalStateException("Konto nadawcy jest nieaktywne");
+        }
+
+        // Zabezpieczenie przed przelewem na własne konto
+        if (request.getSenderIban().equals(request.getReceiverIban())) {
+            throw new IllegalArgumentException("Nie można wykonać przelewu na własne konto");
         }
 
         BigDecimal overdraftLimit = senderAccount.getOverdraftLimit() != null ? senderAccount.getOverdraftLimit() : BigDecimal.ZERO;
@@ -77,11 +132,27 @@ public class TransferService {
             );
         }
 
+        // Sprawdzenie dziennego limitu (dailyLimit)
+        if (senderAccount.getDailyLimit() != null && senderAccount.getDailyLimit().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal todayTotal = transactionRepository
+                    .findTodayTotalBySenderAccountId(senderAccount.getId());
+            BigDecimal afterTransfer = todayTotal.add(request.getAmount());
+            if (afterTransfer.compareTo(senderAccount.getDailyLimit()) > 0) {
+                throw new IllegalStateException(
+                        "Przekroczono dzienny limit transakcji. Limit: " + senderAccount.getDailyLimit()
+                        + " EUR, dotychczas wykorzystano: " + todayTotal + " EUR, próba: " + request.getAmount() + " EUR."
+                );
+            }
+        }
+
         boolean isInternal = "INTERNAL".equals(request.getTransferType());
         if (isInternal) {
-            boolean receiverExists = accountRepository.findByIban(request.getReceiverIban()).isPresent();
-            if (!receiverExists) {
-                throw new IllegalArgumentException("Dla przelewów wewnętrznych, konto odbiorcy musi należeć do BankEuroB.");
+            Account receiverAccount = accountRepository.findByIban(request.getReceiverIban())
+                    .orElseThrow(() -> new IllegalArgumentException("Dla przelewów wewnętrznych, konto odbiorcy musi należeć do BankEuroB."));
+
+            // Sprawdzenie, czy konto odbiorcy jest aktywne
+            if (!Boolean.TRUE.equals(receiverAccount.getIsActive())) {
+                throw new IllegalStateException("Konto odbiorcy jest nieaktywne. Przelew wewnętrzny nie może zostać zrealizowany.");
             }
         }
 
@@ -227,6 +298,16 @@ public class TransferService {
 
         Transaction saved = transactionRepository.save(transaction);
 
+        // Logowanie audytowe dla przelewów wewnętrznych
+        if (isInternal) {
+            log.info("AUDYT: Przelew wewnętrzny | Ref: {} | Nadawca: {} ({}) | Odbiorca: {} | Kwota: {} {} | Status: {}",
+                    saved.getReferenceNumber(),
+                    saved.getSenderName(), saved.getSenderIban(),
+                    saved.getReceiverIban(),
+                    saved.getAmount(), saved.getCurrency(),
+                    saved.getStatus());
+        }
+
         return toDto(saved);
     }
 
@@ -271,6 +352,8 @@ public class TransferService {
             transaction.setStatus("REJECTED");
             transaction.setCompletedAt(OffsetDateTime.now());
             transactionRepository.save(transaction);
+            log.info("AUDYT: Przelew Juniora ODRZUCONY | Ref: {} | Kwota: {} {}",
+                    transaction.getReferenceNumber(), transaction.getAmount(), transaction.getCurrency());
             return;
         }
 
@@ -370,6 +453,14 @@ public class TransferService {
             transaction.setCompletedAt(OffsetDateTime.now());
         }
         transactionRepository.save(transaction);
+
+        // Logowanie audytowe dla zatwierdzonych przelewów Juniora
+        log.info("AUDYT: Przelew Juniora ZATWIERDZONY | Ref: {} | Nadawca: {} | Odbiorca: {} | Kwota: {} {} | Typ: {}",
+                transaction.getReferenceNumber(),
+                transaction.getSenderIban(),
+                transaction.getReceiverIban(),
+                transaction.getAmount(), transaction.getCurrency(),
+                transaction.getTransactionType());
     }
 
     private TransactionDto toDto(Transaction tx) {

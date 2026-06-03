@@ -20,4 +20,13 @@ public class KlikConfirmPaymentResponse {
 
     @JsonProperty("ledger_entries_count")
     private int ledgerEntriesCount;
+
+    @JsonProperty("merchant_net")
+    private String merchantNet;
+
+    @JsonProperty("klik_fee")
+    private String klikFee;
+
+    @JsonProperty("agent_fee")
+    private String agentFee;
 }

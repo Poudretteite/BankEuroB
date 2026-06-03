@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -28,6 +29,18 @@ public class SwiftXmlGenerator {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
     /**
+     * Tymczasowe mapowanie BIC BankEuroB na istniejące BIC w SWIFT Middleware.
+     * SWIFT-Aplikacje-Biznesowe ma zdefiniowane tylko 6 banków (PLBKPL01XXX..USBKUS02XXX).
+     * BankEuroB (BKEUDEBBXXX) nie jest wśród nich, więc podmieniamy BIC nadawcy
+     * na jeden z istniejących, np. USBKUS02XXX (Bank USA 2, port 3006).
+     *
+     * TODO: Docelowo dodać BKEUDEBBXXX do BANK_METADATA w SWIFT-Aplikacje-Biznesowe.
+     */
+    private static final Map<String, String> BIC_MAPPING = Map.of(
+        "BKEUDEBBXXX", "USBKUS02XXX"
+    );
+
+    /**
      * Generuje XML pacs.008.001.08 dla przelewu SWIFT.
      *
      * @param request       dane przelewu
@@ -36,6 +49,12 @@ public class SwiftXmlGenerator {
      */
     public String generate(TransferRequest request, Account senderAccount) {
         String msgId = "MSG-" + System.currentTimeMillis();
+        // Podmiana BIC nadawcy na istniejący w SWIFT Middleware
+        String originalBic = senderAccount.getBic();
+        String mappedSenderBic = BIC_MAPPING.getOrDefault(originalBic, originalBic);
+        if (!mappedSenderBic.equals(originalBic)) {
+            log.info("Mapowanie BIC nadawcy: {} → {} (SWIFT Middleware)", originalBic, mappedSenderBic);
+        }
         String instrId = "INST-" + System.currentTimeMillis();
         String uetr = UUID.randomUUID().toString();
         String now = LocalDateTime.now().format(FORMATTER);
@@ -111,7 +130,7 @@ public class SwiftXmlGenerator {
                 escapeXml(chargeBearer),
                 escapeXml(senderAccount.getCustomer().getFirstName() + " " + senderAccount.getCustomer().getLastName()),
                 escapeXml(senderAccount.getIban()),
-                escapeXml(senderAccount.getBic()),
+                escapeXml(mappedSenderBic),
                 escapeXml(request.getReceiverName() != null ? request.getReceiverName() : ""),
                 escapeXml(request.getReceiverBic() != null ? request.getReceiverBic() : ""),
                 escapeXml(request.getReceiverIban()),

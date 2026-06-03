@@ -34,7 +34,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [1/6] Budowanie i uruchamianie BankEuroB (rdzen)...
+echo [1/8] Tworzenie wspolnej sieci dla integracji z systemami platniczymi...
+docker network create bankeurob-unified-net 2>nul
+if errorlevel 1 (
+    echo  [OK] Siec bankeurob-unified-net juz istnieje
+) else (
+    echo  [OK] Siec bankeurob-unified-net utworzona
+)
+
+echo [2/8] Budowanie i uruchamianie BankEuroB (rdzen)...
 cd /d %~dp0
 docker compose up -d --build
 if errorlevel 1 (
@@ -44,7 +52,11 @@ if errorlevel 1 (
 )
 echo  [OK] BankEuroB uruchomiony
 
-echo [2/6] Budowanie i uruchamianie EU Payments Units...
+echo [3/8] Podlaczanie BankEuroB do wspolnej sieci...
+docker network connect bankeurob-unified-net bankeurob-backend 2>nul
+echo  [OK] BankEuroB podlaczony do bankeurob-unified-net
+
+echo [4/8] Budowanie i uruchamianie EU Payments Units...
 cd /d %~dp0..\eu-payments-units
 docker compose up -d --build
 if errorlevel 1 (
@@ -54,7 +66,7 @@ if errorlevel 1 (
 )
 echo  [OK] EU Payments Units uruchomione
 
-echo [3/6] Budowanie i uruchamianie Karty Platnicze...
+echo [5/8] Budowanie i uruchamianie Karty Platnicze...
 cd /d %~dp0..\Karty-Platnicze-Aplikacje-Biznesowe
 docker compose -f docker-compose.yaml up -d --build
 if errorlevel 1 (
@@ -64,7 +76,7 @@ if errorlevel 1 (
 )
 echo  [OK] Karty Platnicze uruchomione
 
-echo [4/6] Budowanie i uruchamianie KLIK Payments...
+echo [6/8] Budowanie i uruchamianie KLIK Payments...
 cd /d %~dp0..\KLIK-payments
 docker compose up -d --build
 if errorlevel 1 (
@@ -74,7 +86,7 @@ if errorlevel 1 (
 )
 echo  [OK] KLIK Payments uruchomione
 
-echo [5/6] Budowanie i uruchamianie SWIFT...
+echo [7/8] Budowanie i uruchamianie SWIFT...
 cd /d %~dp0..\SWIFT-Aplikacje-Biznesowe
 docker compose up -d --build
 if errorlevel 1 (
@@ -84,7 +96,7 @@ if errorlevel 1 (
 )
 echo  [OK] SWIFT uruchomiony
 
-echo [6/6] Oczekiwanie na gotowosc backendu...
+echo [8/8] Oczekiwanie na gotowosc backendu...
 cd /d %~dp0
 timeout /t 30 /nobreak >nul
 
@@ -92,14 +104,14 @@ echo.
 echo  ============================================================
 echo   APLIKACJA GOTOWA!
 echo  ============================================================
-echo   BankEuroB Frontend:       http://localhost:3000/
+echo   BankEuroB Frontend:       http://localhost:3001/
 echo   BankEuroB Backend:        http://localhost:8080/
 echo  ------------------------------------------------------------
 echo   SYSTEMY PLATNICZE:
 echo   TARGET RTGS:              http://localhost:8001
 echo   SEPA Batch:               http://localhost:8002
 echo   SEPA Instant:             http://localhost:8003
-echo   SWIFT Middleware:         http://localhost:3000
+echo   SWIFT Middleware:         http://localhost:3006
 echo   Payment Gateway (karty):  http://localhost:8072
 echo   Admin Panel (karty):      http://localhost:3072
 echo   KLIK RTGS Mock:           http://localhost:9005

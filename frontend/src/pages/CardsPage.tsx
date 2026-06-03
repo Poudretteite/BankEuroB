@@ -12,8 +12,7 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  Clock,
-  XCircle
+  Clock
 } from 'lucide-react';
 
 interface Card {

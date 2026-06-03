@@ -98,19 +98,19 @@ Test-Endpoint -Name "SEPA Instant Health" -Url "http://localhost:8003/health" -M
 Test-Endpoint -Name "SEPA Instant Transfers" -Url "http://localhost:8003/transfers" -Method GET
 
 # ============================================================
-# 4. SWIFT Middleware (port 3000)
+# 4. SWIFT Middleware (port 3006)
 # ============================================================
 Write-Host "`n--- 4. SWIFT Middleware (System rozliczen SWIFT) ---" -ForegroundColor Yellow
 
-Test-Endpoint -Name "SWIFT Root" -Url "http://localhost:3000/" -Method GET
+Test-Endpoint -Name "SWIFT Root" -Url "http://localhost:3006/" -Method GET
 
 # Token OAuth2 w SWIFT
 $tokenBody = "grant_type=client_credentials&client_id=test-client&client_secret=test-secret"
 $tokenResponse = $null
 try {
-    $tokenResponse = Invoke-WebRequest -Uri "http://localhost:3000/auth/token" -Method POST -Body $tokenBody -ContentType "application/x-www-form-urlencoded" -UseBasicParsing -TimeoutSec 10
+    $tokenResponse = Invoke-WebRequest -Uri "http://localhost:3006/auth/token" -Method POST -Body $tokenBody -ContentType "application/x-www-form-urlencoded" -UseBasicParsing -TimeoutSec 10
     if ($tokenResponse.StatusCode -eq 200) {
-        Write-Host "  [PASS] SWIFT Auth Token (http://localhost:3000/auth/token) -> 200" -ForegroundColor Green
+        Write-Host "  [PASS] SWIFT Auth Token (http://localhost:3006/auth/token) -> 200" -ForegroundColor Green
     }
 } catch {
     Write-Host "  [FAIL] SWIFT Auth Token -> $_" -ForegroundColor Red
@@ -118,7 +118,7 @@ try {
 }
 
 # Dashboard SWIFT
-Test-Endpoint -Name "SWIFT Dashboard" -Url "http://localhost:3000/api/dashboard" -Method GET
+Test-Endpoint -Name "SWIFT Dashboard" -Url "http://localhost:3006/api/dashboard" -Method GET
 
 # ============================================================
 # 5. Payment Gateway (port 8072) - System kart platniczych
@@ -241,11 +241,11 @@ Write-Host "============================================================" -Foreg
 # Lista wszystkich serwisow i ich portow
 Write-Host "`n--- Mapowanie portow systemow platniczych ---" -ForegroundColor Magenta
 Write-Host "  BankEuroB Backend:       http://localhost:8080"
-Write-Host "  BankEuroB Frontend:      http://localhost:3000"
+Write-Host "  BankEuroB Frontend:      http://localhost:3001"
 Write-Host "  TARGET RTGS:             http://localhost:8001"
 Write-Host "  SEPA Batch:              http://localhost:8002"
 Write-Host "  SEPA Instant:            http://localhost:8003"
-Write-Host "  SWIFT Middleware:        http://localhost:3000"
+Write-Host "  SWIFT Middleware:        http://localhost:3006"
 Write-Host "  Payment Gateway (karty): http://localhost:8072"
 Write-Host "  Admin Panel (karty):     http://localhost:3072"
 Write-Host "  KLIK RTGS Mock:          http://localhost:9005"

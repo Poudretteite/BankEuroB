@@ -103,18 +103,18 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       # Integracja z systemami płatniczymi – adresy w sieci Docker
       # Spring Boot relaxed binding: integration.target.base-url → INTEGRATION_TARGET_BASEURL
-            INTEGRATION_TARGET_BASEURL: http://target_service:8001
-      INTEGRATION_SEPA_BATCH_BASEURL: http://sepa_batch_service:8002
-      INTEGRATION_SEPA_INSTANT_BASEURL: http://sepa_instant_service:8003
+      INTEGRATION_TARGET_BASEURL: http://target-service:8001
+      INTEGRATION_SEPA_BATCH_BASEURL: http://sepa-batch-service:8002
+      INTEGRATION_SEPA_INSTANT_BASEURL: http://sepa-instant-service:8003
       INTEGRATION_SWIFT_BASEURL: http://swift-app:3000
-      INTEGRATION_CARDS_GATEWAY_BASEURL: http://cards_gateway_app:8000
+      INTEGRATION_CARDS_GATEWAY_BASEURL: http://cards-gateway-app:8000
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
-                condition: service_healthy
+        condition: service_healthy
     networks:
       - bankeurob-net
       - bankeurob-unified-net
