@@ -1,6 +1,6 @@
 package com.bankeurob.integration.cards.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -11,29 +11,29 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class CardsIssueResponse {
-    @JsonProperty("card_token")
+    @JsonAlias("card_token")
     private String cardToken;
 
-    @JsonProperty("masked_pan")
+    @JsonAlias("masked_pan")
     private String maskedPan;
 
-    @JsonProperty("full_pan")
+    @JsonAlias("full_pan")
     private String fullPan;
 
     private String cvv;
 
-    @JsonProperty("expiry_month")
+    @JsonAlias("expiry_month")
     private int expiryMonth;
 
-    @JsonProperty("expiry_year")
+    @JsonAlias("expiry_year")
     private int expiryYear;
 
     private String status;
 
-    @JsonProperty("card_type")
+    @JsonAlias("card_type")
     private String cardType;
 
-    @JsonProperty("bank_id")
+    @JsonAlias("bank_id")
     private String bankId;
 
     private String message;

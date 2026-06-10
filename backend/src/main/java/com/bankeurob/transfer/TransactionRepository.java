@@ -25,4 +25,30 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
            "AND t.status NOT IN ('FAILED', 'REJECTED') " +
            "AND CAST(t.requestedAt AS date) = CURRENT_DATE")
     BigDecimal findTodayTotalBySenderAccountId(@Param("accountId") UUID accountId);
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+           "WHERE t.title = :cardTitle " +
+           "AND t.status NOT IN ('FAILED', 'REJECTED') " +
+           "AND CAST(t.completedAt AS date) = CURRENT_DATE")
+    BigDecimal findTodayTotalByCardTitle(@Param("cardTitle") String cardTitle);
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+           "WHERE t.title = :cardTitle " +
+           "AND t.status NOT IN ('FAILED', 'REJECTED') " +
+           "AND EXTRACT(MONTH FROM t.completedAt) = EXTRACT(MONTH FROM CURRENT_DATE) " +
+           "AND EXTRACT(YEAR FROM t.completedAt) = EXTRACT(YEAR FROM CURRENT_DATE)")
+    BigDecimal findMonthlyTotalByCardTitle(@Param("cardTitle") String cardTitle);
+
+    @Query("SELECT COUNT(t) FROM Transaction t " +
+           "WHERE t.title = :cardTitle " +
+           "AND t.status NOT IN ('FAILED', 'REJECTED') " +
+           "AND CAST(t.completedAt AS date) = CURRENT_DATE")
+    Integer countTodayTransactionsByCardTitle(@Param("cardTitle") String cardTitle);
+
+    @Query("SELECT COUNT(t) FROM Transaction t " +
+           "WHERE t.title = :cardTitle " +
+           "AND t.status NOT IN ('FAILED', 'REJECTED') " +
+           "AND EXTRACT(MONTH FROM t.completedAt) = EXTRACT(MONTH FROM CURRENT_DATE) " +
+           "AND EXTRACT(YEAR FROM t.completedAt) = EXTRACT(YEAR FROM CURRENT_DATE)")
+    Integer countMonthlyTransactionsByCardTitle(@Param("cardTitle") String cardTitle);
 }

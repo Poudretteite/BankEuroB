@@ -12,7 +12,8 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Settings
 } from 'lucide-react';
 
 interface Card {
@@ -22,6 +23,9 @@ interface Card {
   cardType: string;
   balance: number;
   dailyLimit: number;
+  monthlyLimit: number;
+  dailyTxnLimit: number;
+  monthlyTxnLimit: number;
   bankId: string;
 }
 
@@ -59,6 +63,15 @@ export const CardsPage: React.FC = () => {
   const [newCardData, setNewCardData] = useState<IssueResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Stan dla edycji limitów
+  const [editingLimitsFor, setEditingLimitsFor] = useState<string | null>(null);
+  const [limitValues, setLimitValues] = useState({
+    dailyLimit: 0,
+    monthlyLimit: 0,
+    dailyTxnLimit: 0,
+    monthlyTxnLimit: 0,
+  });
+
   // Pobieranie listy kart
   const { data: cards, isLoading, refetch } = useQuery({
     queryKey: ['externalCards'],
@@ -74,7 +87,6 @@ export const CardsPage: React.FC = () => {
     mutationFn: async (cardType: string) => {
       const response = await axiosClient.post<IssueResponse>('/cards/issue', {
         userId: user?.email || 'user',
-        accountId: user?.email + '_acc' || 'user_acc',
         cardType: cardType,
         initialBalance: cardType === 'PREPAID' ? 100.0 : 0.0,
       });
@@ -84,7 +96,6 @@ export const CardsPage: React.FC = () => {
       setNewCardData(data);
       setShowIssueForm(false);
       setError(null);
-      // Odświeżenie listy po chwili (karta powinna się pojawić)
       setTimeout(() => queryClient.invalidateQueries({ queryKey: ['externalCards'] }), 2000);
     },
     onError: (err: any) => {
@@ -92,7 +103,7 @@ export const CardsPage: React.FC = () => {
     },
   });
 
-  // Zmiana statusu karty (blokada/odblokowanie)
+  // Zmiana statusu karty
   const statusMutation = useMutation({
     mutationFn: async ({ cardToken, newStatus, reason }: { cardToken: string; newStatus: string; reason?: string }) => {
       await axiosClient.patch(`/cards/${cardToken}/status`, {
@@ -101,6 +112,20 @@ export const CardsPage: React.FC = () => {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['externalCards'] });
+    },
+    onError: (err: any) => {
+      setError(err.response?.data?.error || err.message);
+    },
+  });
+
+  // Zmiana limitów
+  const limitsMutation = useMutation({
+    mutationFn: async ({ cardToken, limits }: { cardToken: string; limits: any }) => {
+      await axiosClient.patch(`/cards/${cardToken}/limits`, limits);
+    },
+    onSuccess: () => {
+      setEditingLimitsFor(null);
       queryClient.invalidateQueries({ queryKey: ['externalCards'] });
     },
     onError: (err: any) => {
@@ -124,6 +149,20 @@ export const CardsPage: React.FC = () => {
     statusMutation.mutate({ cardToken, newStatus: 'ACTIVE' });
   };
 
+  const startEditingLimits = (card: Card) => {
+    setEditingLimitsFor(card.cardToken);
+    setLimitValues({
+      dailyLimit: card.dailyLimit || 0,
+      monthlyLimit: card.monthlyLimit || 0,
+      dailyTxnLimit: card.dailyTxnLimit || 0,
+      monthlyTxnLimit: card.monthlyTxnLimit || 0,
+    });
+  };
+
+  const saveLimits = (cardToken: string) => {
+    limitsMutation.mutate({ cardToken, limits: limitValues });
+  };
+
   const getStatusBadge = (status: string) => {
     const badge = STATUS_BADGES[status] || { label: status, className: 'statusDefault' };
     return (
@@ -144,7 +183,6 @@ export const CardsPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Przycisk wydania karty */}
       <div className={styles.issueSection}>
         <button
           className={styles.issueButton}
@@ -157,7 +195,6 @@ export const CardsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Formularz wydania karty */}
       {showIssueForm && (
         <div className={`glass-panel ${styles.issueForm}`}>
           <h3>Wybierz typ karty</h3>
@@ -190,7 +227,6 @@ export const CardsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Wynik wydania karty */}
       {newCardData && (
         <div className={`glass-panel ${styles.newCardResult}`}>
           <div className={styles.resultHeader}>
@@ -227,7 +263,6 @@ export const CardsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Lista kart */}
       <div className={`glass-panel ${styles.cardsList}`}>
         <h3 className={styles.sectionTitle}>Twoje karty</h3>
 
@@ -254,29 +289,67 @@ export const CardsPage: React.FC = () => {
                   <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Saldo:</span>
                     <span className={styles.detailValue}>
-                      {card.balance.toFixed(2)} {card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}
+                      {card.balance?.toFixed(2)} {card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}
                     </span>
                   </div>
-                  <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Limit dzienny:</span>
-                    <span className={styles.detailValue}>{card.dailyLimit.toFixed(2)}</span>
-                  </div>
-                  <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Token:</span>
-                    <span className={styles.detailValue} style={{ fontSize: '0.7rem', opacity: 0.7 }}>
-                      {card.cardToken.substring(0, 20)}...
-                    </span>
-                  </div>
+                  
+                  {editingLimitsFor === card.cardToken ? (
+                    <div className={styles.limitsEditForm}>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Limit dzienny ({card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}):</span>
+                        <input type="number" value={limitValues.dailyLimit} onChange={e => setLimitValues({...limitValues, dailyLimit: Number(e.target.value)})} className={styles.limitInput} />
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Limit miesięczny ({card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}):</span>
+                        <input type="number" value={limitValues.monthlyLimit} onChange={e => setLimitValues({...limitValues, monthlyLimit: Number(e.target.value)})} className={styles.limitInput} />
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Limit dzienny (ilość):</span>
+                        <input type="number" value={limitValues.dailyTxnLimit} onChange={e => setLimitValues({...limitValues, dailyTxnLimit: Number(e.target.value)})} className={styles.limitInput} />
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Limit miesięczny (ilość):</span>
+                        <input type="number" value={limitValues.monthlyTxnLimit} onChange={e => setLimitValues({...limitValues, monthlyTxnLimit: Number(e.target.value)})} className={styles.limitInput} />
+                      </div>
+                      <div className={styles.editActionButtons}>
+                        <button onClick={() => saveLimits(card.cardToken)} disabled={limitsMutation.isPending} className={styles.saveButton}>
+                          {limitsMutation.isPending ? 'Zapisywanie...' : 'Zapisz'}
+                        </button>
+                        <button onClick={() => setEditingLimitsFor(null)} className={styles.cancelButton}>Anuluj</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Limit kwotowy:</span>
+                        <span className={styles.detailValue}>{card.dailyLimit?.toFixed(2)} / {card.monthlyLimit?.toFixed(2)}</span>
+                      </div>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Limit transakcji:</span>
+                        <span className={styles.detailValue}>{card.dailyTxnLimit || 0} / {card.monthlyTxnLimit || 0}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className={styles.cardActions}>
-                  {card.status === 'ACTIVE' && (
+                  {card.status === 'ACTIVE' && editingLimitsFor !== card.cardToken && (
                     <button
                       className={styles.blockButton}
                       onClick={() => handleBlockCard(card.cardToken)}
                       disabled={statusMutation.isPending}
+                      style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#ef4444' }}
                     >
                       <Lock size={14} /> Zablokuj
+                    </button>
+                  )}
+                  {card.status === 'ACTIVE' && editingLimitsFor !== card.cardToken && (
+                    <button
+                      className={styles.unblockButton}
+                      onClick={() => startEditingLimits(card)}
+                      style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white' }}
+                    >
+                      <Settings size={14} /> Limity
                     </button>
                   )}
                   {card.status === 'BLOCKED' && (

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axiosClient from '../api/axiosClient';
 import { useAuthStore } from '../store/useAuthStore';
@@ -131,8 +131,9 @@ const getStatusBadge = (status: string) => {
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [extCardStatus, setExtCardStatus] = useState<string | null>(null);
+  // const [extCardStatus, setExtCardStatus] = useState<string | null>(null);
 
+  /*
   const handleIssueCardClick = async () => {
     try {
       setExtCardStatus('Łączenie z Card Provider...');
@@ -147,6 +148,7 @@ export const DashboardPage: React.FC = () => {
     }
     setTimeout(() => setExtCardStatus(null), 10000);
   };
+  */
 
   const { data: accounts, isLoading: accountsLoading } = useQuery({
     queryKey: ['accounts'],
@@ -246,21 +248,23 @@ export const DashboardPage: React.FC = () => {
           <div className={`glass-panel ${styles.quickActionsCard}`}>
             <h3 className={styles.cardTitle}>Szybki dostęp</h3>
 
+            {/*
             {extCardStatus && (
               <div className={styles.integrationToast}>
                 {extCardStatus}
               </div>
             )}
+            */}
 
             <div className={styles.actionsGrid}>
               <Link to="/transfer" className={styles.actionBtn}>
                 <div className={styles.actionIcon}><Send size={20} /></div>
                 <span>Przelew</span>
               </Link>
-              <button className={styles.actionBtn} onClick={handleIssueCardClick}>
+              <Link to="/cards" className={styles.actionBtn}>
                 <div className={`${styles.actionIcon} ${styles.iconGold}`}><CreditCardIcon size={20} /></div>
-                <span>Wydaj Kartę (gRPC)</span>
-              </button>
+                <span>Wydaj Kartę</span>
+              </Link>
               <button className={styles.actionBtn}>
                 <div className={`${styles.actionIcon} ${styles.iconPurple}`}><MoreHorizontal size={20} /></div>
                 <span>Więcej</span>

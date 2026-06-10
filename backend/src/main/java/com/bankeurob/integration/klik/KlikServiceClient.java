@@ -2,13 +2,14 @@ package com.bankeurob.integration.klik;
 
 import com.bankeurob.integration.klik.config.KlikConfig;
 import com.bankeurob.integration.klik.dto.*;
-import lombok.RequiredArgsConstructor;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -25,12 +26,15 @@ import java.util.UUID;
  * @see <a href="https://github.com/your-org/KLIK-payments">KLIK Payments</a>
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class KlikServiceClient {
 
-    private final RestTemplate restTemplate;
+    private final RestTemplate restTemplate = new RestTemplate();
     private final KlikConfig config;
+
+    public KlikServiceClient(KlikConfig config) {
+        this.config = config;
+    }
 
     // ─────────────────────────────────────────────────
     // C2B — Generowanie kodu (POST /api/v1/codes/generate)
@@ -48,8 +52,11 @@ public class KlikServiceClient {
         String url = config.getBaseUrl() + "/api/v1/codes/generate";
         log.info("Generowanie kodu KLIK: userId={}, zone={}", userId, zone);
 
-        KlikGenerateCodeRequest request = new KlikGenerateCodeRequest(userId, zone);
-        HttpEntity<KlikGenerateCodeRequest> entity = new HttpEntity<>(request, buildHeaders());
+        Map<String, String> requestBody = Map.of(
+            "user_id", userId,
+            "zone", zone
+        );
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, buildHeaders());
 
         try {
             ResponseEntity<KlikGenerateCodeResponse> response = restTemplate.postForEntity(
@@ -89,15 +96,15 @@ public class KlikServiceClient {
         String url = config.getBaseUrl() + "/api/v1/payments/confirm";
         log.info("Potwierdzanie płatności KLIK: transactionId={}, status={}", transactionId, status);
 
-        KlikConfirmPaymentRequest request = new KlikConfirmPaymentRequest();
-        request.setTransactionId(transactionId);
-        request.setStatus(status);
+        Map<String, String> requestBody = new java.util.HashMap<>();
+        requestBody.put("transaction_id", transactionId);
+        requestBody.put("status", status);
 
         if ("REJECTED".equals(status) && rejectReason != null) {
-            request.setRejectReason(rejectReason);
+            requestBody.put("reject_reason", rejectReason);
         }
 
-        HttpEntity<KlikConfirmPaymentRequest> entity = new HttpEntity<>(request, buildHeaders());
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, buildHeaders());
 
         try {
             ResponseEntity<KlikConfirmPaymentResponse> response = restTemplate.postForEntity(
@@ -173,11 +180,16 @@ public class KlikServiceClient {
         String url = config.getBaseUrl() + "/api/v1/aliases/register";
         log.info("Rejestracja aliasu P2P: phone={}, iban={}, zone={}", phone, iban, zone);
 
-        KlikRegisterAliasRequest.AccountIdentifier accountId =
-                new KlikRegisterAliasRequest.AccountIdentifier("iban", iban, null, null);
-        KlikRegisterAliasRequest request = new KlikRegisterAliasRequest(phone, accountId, zone);
+        Map<String, Object> accountIdMap = new java.util.HashMap<>();
+        accountIdMap.put("type", "iban");
+        accountIdMap.put("value", iban);
 
-        HttpEntity<KlikRegisterAliasRequest> entity = new HttpEntity<>(request, buildHeaders());
+        Map<String, Object> requestBody = new java.util.HashMap<>();
+        requestBody.put("phone", phone);
+        requestBody.put("account_identifier", accountIdMap);
+        requestBody.put("zone", zone);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, buildHeaders());
 
         try {
             ResponseEntity<KlikRegisterAliasResponse> response = restTemplate.postForEntity(
@@ -276,6 +288,7 @@ public class KlikServiceClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-KLIK-Bank-Api-Key", config.getApiKey());
+        headers.set("X-KLIK-Api-Key", config.getApiKey());
         headers.set("Idempotency-Key", UUID.randomUUID().toString());
         return headers;
     }

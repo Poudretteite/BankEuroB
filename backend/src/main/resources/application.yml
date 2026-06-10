@@ -31,9 +31,9 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-# ─── Server ────────────────────────────────────────────────────────
+# ─── Server ────────────────────────────────────────────────────────# ⚙️ Server ⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️⚙️
 server:
-  port: 8080
+  port: 9876
   error:
     include-message: always
     include-stacktrace: always
@@ -55,7 +55,7 @@ logging:
 # ─── CORS (dla frontendu React) ────────────────────────────────────
 app:
   cors:
-    allowed-origins: "http://localhost:3000,http://localhost:3001,http://localhost:5173"
+    allowed-origins: "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:9875"
 
   # Dane identyfikacyjne banku
   bank:

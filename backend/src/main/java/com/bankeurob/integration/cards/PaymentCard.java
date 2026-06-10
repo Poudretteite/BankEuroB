@@ -32,8 +32,24 @@ public class PaymentCard {
     @Column(name = "card_type", nullable = false)
     private String cardType;
 
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     private String status;
+
+    @Builder.Default
+    @Column(name = "daily_limit", nullable = false)
+    private java.math.BigDecimal dailyLimit = java.math.BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "monthly_limit", nullable = false)
+    private java.math.BigDecimal monthlyLimit = java.math.BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(name = "daily_txn_limit", nullable = false)
+    private int dailyTxnLimit = 0;
+
+    @Builder.Default
+    @Column(name = "monthly_txn_limit", nullable = false)
+    private int monthlyTxnLimit = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

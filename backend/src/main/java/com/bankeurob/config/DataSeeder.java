@@ -22,6 +22,7 @@ public class DataSeeder implements ApplicationRunner {
 
     private final CustomerRepository customerRepository;
     private final AccountRepository accountRepository;
+    private final com.bankeurob.transfer.TransactionRepository transactionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -45,12 +46,12 @@ public class DataSeeder implements ApplicationRunner {
         );
         createAccount(admin, "DE89370400440532013000", BigDecimal.ZERO);
 
-        // ─── Klient testowy 1: Anna Kowalski ─────────────────
+        // ─── Klient testowy 1: Anna Kowalska ─────────────────
         Customer anna = createCustomer(
-                "anna.kowalski@example.com",
+                "anna.kowalska@example.com",
                 "password123",
                 "Anna",
-                "Kowalski",
+                "Kowalska",
                 LocalDate.of(1990, 5, 15),
                 "CUSTOMER"
         );
@@ -78,13 +79,21 @@ public class DataSeeder implements ApplicationRunner {
         );
         createJuniorAccount(kamil, "DE69370400440000300003", new BigDecimal("150.00"), anna);
 
+        // ─── Przelewy testowe (Historia transakcji) ───────────
+        Account annaAccount = accountRepository.findByIban("DE36370400440000100001").orElseThrow();
+        Account janAccount = accountRepository.findByIban("DE04370400440000200002").orElseThrow();
+
+        createTransaction(annaAccount, "DE04370400440000200002", "Jan Nowak", new BigDecimal("250.00"), "Za zakupy");
+        createTransaction(janAccount, "DE36370400440000100001", "Anna Kowalska", new BigDecimal("50.00"), "Zwrot za kino");
+        createTransaction(annaAccount, "PL123456789012345678901234", "Zewnętrzny Sklep", new BigDecimal("120.50"), "Zamówienie nr 12345");
+
         log.info("""
                 DataSeeder: inicjalizacja zakończona!
                 ╔══════════════════════════════════════════════╗
                 ║           KONTA TESTOWE BANKEUROB            ║
                 ╠══════════════════════════════════════════════╣
                 ║ admin@bankeurob.eu       / admin123          ║
-                ║ anna.kowalski@example.com / password123      ║
+                ║ anna.kowalska@example.com / password123      ║
                 ║ jan.nowak@example.com    / password123       ║
                 ║ junior@example.com       / password123       ║
                 ╚══════════════════════════════════════════════╝
@@ -144,5 +153,29 @@ public class DataSeeder implements ApplicationRunner {
         a.setParentAccount(parentAccount);
         a.setDailyLimit(new BigDecimal("50.00"));
         accountRepository.save(a);
+    }
+
+    private void createTransaction(Account senderAccount, String receiverIban, String receiverName, BigDecimal amount, String title) {
+        com.bankeurob.transfer.Transaction t = new com.bankeurob.transfer.Transaction();
+        t.setReferenceNumber(java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase());
+        t.setTransactionType("INTERNAL");
+        t.setStatus("COMPLETED");
+        
+        t.setSenderAccount(senderAccount);
+        t.setSenderIban(senderAccount.getIban());
+        t.setSenderName(senderAccount.getCustomer().getFirstName() + " " + senderAccount.getCustomer().getLastName());
+        
+        t.setReceiverIban(receiverIban);
+        t.setReceiverName(receiverName);
+        
+        t.setAmount(amount);
+        t.setCurrency("EUR");
+        t.setTitle(title);
+        
+        t.setRequestedAt(java.time.OffsetDateTime.now().minusDays(new java.util.Random().nextInt(30)));
+        t.setCompletedAt(t.getRequestedAt().plusMinutes(5));
+        t.setValueDate(t.getRequestedAt().toLocalDate());
+        
+        transactionRepository.save(t);
     }
 }

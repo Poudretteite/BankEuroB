@@ -10,8 +10,9 @@ export default defineConfig({
     // 🔥 Ostrzeżenia o dużych chunkach
     chunkSizeWarningLimit: 300,
   },
-  // 🔥 Serwer deweloperski z szybszym HMR
+  // 🔥 Serwer deweloperski z szybszym HMR i własnym portem
   server: {
     hmr: true,
+    port: 9875,
   },
 })

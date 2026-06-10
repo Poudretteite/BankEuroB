@@ -78,7 +78,6 @@ export const BlikPage: React.FC = () => {
 
   const [step, setStep] = useState<'code' | 'pending' | 'confirm' | 'processing' | 'success' | 'error'>('code');
   const [blikCode, setBlikCode] = useState('');
-  const [codeExpiresIn, setCodeExpiresIn] = useState(120);
   const [countdown, setCountdown] = useState(120);
   const [errorMessage, setErrorMessage] = useState('');
   const [txRef, setTxRef] = useState('');
@@ -129,7 +128,7 @@ export const BlikPage: React.FC = () => {
       const response = await axiosClient.post('/klik/codes/generate');
       const data = response.data;
       setBlikCode(data.code);
-      setCodeExpiresIn(data.expires_in);
+      // setCodeExpiresIn(data.expires_in);
       setCountdown(data.expires_in);
       setStep('code');
     } catch (err: any) {

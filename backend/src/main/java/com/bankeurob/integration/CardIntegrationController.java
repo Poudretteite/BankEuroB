@@ -122,10 +122,11 @@ public class CardIntegrationController {
         @ApiResponse(responseCode = "200", description = "Lista kart pobrana pomyślnie"),
         @ApiResponse(responseCode = "503", description = "Payment Gateway niedostępny")
     })
-    public ResponseEntity<?> listCards() {
-        log.info("Pobieranie listy kart z Payment Gateway");
+    public ResponseEntity<?> listCards(Authentication auth) {
+        log.info("Pobieranie listy kart z Payment Gateway dla {}", auth != null ? auth.getName() : "anonymous");
         try {
-            CardsListResponse cards = cardsServiceClient.listCards();
+            String userEmail = auth != null ? auth.getName() : "bankeurob_user";
+            CardsListResponse cards = cardService.listUserCards(userEmail);
             return ResponseEntity.ok(cards);
         } catch (ResourceAccessException e) {
             return ResponseEntity.status(503).body(Map.of("error",
@@ -189,6 +190,28 @@ public class CardIntegrationController {
         } catch (Exception e) {
             log.error("Błąd zmiany statusu karty {}: {}", cardToken, e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // Limity
+    // ─────────────────────────────────────────────────
+
+    @PatchMapping("/{cardToken}/limits")
+    @Operation(summary = "Zmień limity karty",
+               description = "Pozwala na ustalenie dziennych i miesięcznych limitów kwotowych oraz ilościowych dla karty.")
+    public ResponseEntity<?> updateCardLimits(
+            @PathVariable String cardToken,
+            @RequestBody CardLimitsUpdateRequest request) {
+        log.info("Zmiana limitów karty: token={}, request={}", cardToken, request);
+        try {
+            cardService.updateCardLimits(cardToken, request);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Limity zostały zaktualizowane"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Błąd zmiany limitów karty {}: {}", cardToken, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
 

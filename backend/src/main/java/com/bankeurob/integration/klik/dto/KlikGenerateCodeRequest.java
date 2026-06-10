@@ -14,10 +14,15 @@ import lombok.NoArgsConstructor;
  * @param userId wewnętrzny identyfikator klienta w BankEuroB
  * @param zone   strefa walutowo-krajowa (PL, EU, UK, US)
  */
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class KlikGenerateCodeRequest {
+    @JsonProperty("user_id")
     private String userId;
+    
+    @JsonProperty("zone")
     private String zone;
 }

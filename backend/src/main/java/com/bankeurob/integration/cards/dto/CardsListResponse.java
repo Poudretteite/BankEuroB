@@ -1,6 +1,6 @@
 package com.bankeurob.integration.cards.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
@@ -17,23 +17,27 @@ public class CardsListResponse {
     @Data
     @NoArgsConstructor
     public static class CardSummary {
-        @JsonProperty("card_token")
+        @JsonAlias("card_token")
         private String cardToken;
 
-        @JsonProperty("masked_pan")
+        @JsonAlias("masked_pan")
         private String maskedPan;
 
         private String status;
 
-        @JsonProperty("card_type")
+        @JsonAlias("card_type")
         private String cardType;
 
         private double balance;
 
-        @JsonProperty("daily_limit")
+        @JsonAlias("daily_limit")
         private double dailyLimit;
 
-        @JsonProperty("bank_id")
+        private double monthlyLimit;
+        private int dailyTxnLimit;
+        private int monthlyTxnLimit;
+
+        @JsonAlias("bank_id")
         private String bankId;
     }
 }
