@@ -21,6 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/transfers")
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 @Tag(name = "Transfers", description = "Zlecanie i historia przelewów bankowych")
 @SecurityRequirement(name = "bearerAuth")
 public class TransferController {
@@ -63,6 +64,14 @@ public class TransferController {
             @Valid @RequestBody com.bankeurob.transfer.dto.TargetIncomingWebhookDto request
     ) {
         transferService.handleIncomingTargetWebhook(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping(value = "/webhook/swift/receive", consumes = org.springframework.http.MediaType.APPLICATION_XML_VALUE)
+    @Operation(summary = "Webhook dla przychodzących przelewów SWIFT")
+    public ResponseEntity<Void> handleIncomingSwiftWebhook(@RequestBody String xmlMessage) {
+        log.info("Otrzymano webhook z systemu SWIFT (XML)");
+        transferService.handleIncomingSwiftWebhook(xmlMessage);
         return ResponseEntity.ok().build();
     }
 

@@ -39,6 +39,7 @@ import java.util.Map;
 public class CardIntegrationController {
 
     private final CardsServiceClient cardsServiceClient;
+    private final com.bankeurob.integration.cards.CardService cardService;
 
     // ─────────────────────────────────────────────────
     // Wydawanie kart
@@ -48,27 +49,20 @@ public class CardIntegrationController {
     @Operation(summary = "Wydaj nową kartę",
                description = "Wydaje nową kartę płatniczą za pośrednictwem Payment Gateway. " +
                              "Wymaga podpisu HMAC-SHA256. Obsługiwane typy: VIRTUAL, PHYSICAL, PREPAID. " +
-                             "fullPan i cvv są zwracane tylko raz – BankEuroB musi je zapisać.")
+                             "Kwota początkowa (initialBalance) dotyczy tylko PREPAID.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Karta wydana pomyślnie",
-            content = @Content(examples = @ExampleObject(value = "{\"status\":\"success\",\"cardToken\":\"tok_abc123\",\"maskedPan\":\"4100 01** **** 7890\",\"fullPan\":\"4100019293393196\",\"cvv\":\"780\",\"expiryMonth\":6,\"expiryYear\":29,\"cardType\":\"VIRTUAL\",\"message\":\"IMPORTANT: Save full_pan and cvv - they will never be shown again.\"}"))),
+        @ApiResponse(responseCode = "200", description = "Karta wydana pomyślnie"),
         @ApiResponse(responseCode = "400", description = "Nieprawidłowe dane żądania"),
-        @ApiResponse(responseCode = "503", description = "Payment Gateway niedostępny",
-            content = @Content(examples = @ExampleObject(value = "{\"error\":\"Payment Gateway jest wyłączony. Uruchom serwis na porcie 8072.\"}")))
+        @ApiResponse(responseCode = "503", description = "Payment Gateway niedostępny")
     })
     public ResponseEntity<?> issueCard(
             @RequestBody IssueCardRequest request,
             Authentication auth) {
-        log.info("Wydawanie karty: type={}, userId={}", request.getCardType(), auth != null ? auth.getName() : "anonymous");
+        log.info("Wydawanie karty: type={}, user={}", request.getCardType(), auth != null ? auth.getName() : "anonymous");
 
         try {
-            String userId = auth != null ? auth.getName() : "bankeurob_user";
-            request.setUserId(userId);
-            if (request.getAccountId() == null || request.getAccountId().isEmpty()) {
-                request.setAccountId(userId + "_acc");
-            }
-
-            CardsIssueResponse response = cardsServiceClient.issueCard(request);
+            String userEmail = auth != null ? auth.getName() : "bankeurob_user";
+            CardsIssueResponse response = cardService.issueCardForUser(userEmail, request);
 
             log.info("Karta wydana: token={}, maskedPan={}", response.getCardToken(), response.getMaskedPan());
             return ResponseEntity.ok(Map.of(
@@ -92,6 +86,27 @@ public class CardIntegrationController {
         } catch (Exception e) {
             log.error("Błąd wydawania karty: {}", e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // Webhook - Obciążenie (Capture)
+    // ─────────────────────────────────────────────────
+
+    @PostMapping("/webhook/capture")
+    @Operation(summary = "Webhook obciążeniowy",
+               description = "Endpoint dla Payment Gateway, który pobiera środki z konta po zapłaceniu kartą.")
+    public ResponseEntity<?> processCaptureWebhook(@RequestBody CardWebhookRequest request) {
+        try {
+            cardService.processCaptureWebhook(request);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Obciążono rachunek"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(402).body(Map.of("success", false, "error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Błąd webhooka: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
         }
     }
 

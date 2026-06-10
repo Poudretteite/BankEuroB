@@ -30,6 +30,13 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathFactory;
+import java.io.StringReader;
 
 @Service
 @RequiredArgsConstructor
@@ -511,11 +518,18 @@ public class TransferService {
         // Zapisanie transakcji jako przychodzącej
         Transaction transaction = new Transaction();
         transaction.setReferenceNumber(generateReferenceNumber());
-        transaction.setTransactionType("INCOMING_TARGET");
+        
+        String event = dto.getEvent();
+        if ("payment.settled".equals(event)) {
+            transaction.setTransactionType("INCOMING_SEPA");
+        } else {
+            transaction.setTransactionType("INCOMING_TARGET");
+        }
+
         transaction.setStatus("COMPLETED");
         
-        transaction.setSenderIban("EXTERNAL_BANK");
-        transaction.setSenderName("Bank zewnętrzny (TARGET)");
+        transaction.setSenderIban(dto.getSenderIban() != null ? dto.getSenderIban() : "EXTERNAL_BANK");
+        transaction.setSenderName("Bank zewnętrzny (" + transaction.getTransactionType() + ")");
         transaction.setSenderBic(dto.getSenderBic());
         
         transaction.setReceiverIban(receiverAccount.getIban());
@@ -523,11 +537,74 @@ public class TransferService {
         
         transaction.setAmount(dto.getAmount());
         transaction.setCurrency(dto.getCurrency());
-        transaction.setTitle(dto.getTitle() != null ? dto.getTitle() : "Przelew przychodzący TARGET");
-        transaction.setExternalMessageId(dto.getTransactionId());
+        transaction.setTitle(dto.getDescription() != null ? dto.getDescription() : "Przelew przychodzący");
+        transaction.setExternalMessageId(dto.getTransferId());
         transaction.setCompletedAt(OffsetDateTime.now());
 
         transactionRepository.save(transaction);
-        log.info("Pomyślnie zaksięgowano przychodzący przelew TARGET o ID {} na konto {}", dto.getTransactionId(), receiverAccount.getIban());
+        log.info("Pomyślnie zaksięgowano przychodzący przelew {} o ID {} na konto {}", transaction.getTransactionType(), dto.getTransferId(), receiverAccount.getIban());
+    }
+
+    @Transactional
+    public void handleIncomingSwiftWebhook(String xmlMessage) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(xmlMessage)));
+
+            XPath xPath = XPathFactory.newInstance().newXPath();
+
+            String receiverIban = xPath.compile("//CdtrAcct/Id/Othr/Id").evaluate(doc);
+            if (receiverIban == null || receiverIban.isBlank()) {
+                receiverIban = xPath.compile("//CdtrAcct/Id/IBAN").evaluate(doc); // Fallback
+            }
+            String amountStr = xPath.compile("//IntrBkSttlmAmt").evaluate(doc);
+            String currency = xPath.compile("//IntrBkSttlmAmt/@Ccy").evaluate(doc);
+            String senderBic = xPath.compile("//DbtrAgt/FinInstnId/BICFI").evaluate(doc);
+            String title = xPath.compile("//RmtInf/Ustrd").evaluate(doc);
+            String senderName = xPath.compile("//Dbtr/Nm").evaluate(doc);
+            String transactionId = xPath.compile("//MsgId").evaluate(doc);
+
+            if (receiverIban == null || receiverIban.isBlank()) {
+                throw new IllegalArgumentException("Brak IBAN odbiorcy w komunikacie SWIFT XML");
+            }
+
+            final String cleanIban = receiverIban.replaceAll("\\s+", "");
+            Account receiverAccount = accountRepository.findByIban(cleanIban)
+                    .orElseThrow(() -> new RuntimeException("Konto odbiorcy nie znalezione w BankEuroB: " + cleanIban));
+
+            BigDecimal amount = new BigDecimal(amountStr);
+
+            // Księgowanie środków na koncie odbiorcy
+            receiverAccount.setBalance(receiverAccount.getBalance().add(amount));
+            receiverAccount.setAvailableBalance(receiverAccount.getAvailableBalance().add(amount));
+            accountRepository.save(receiverAccount);
+
+            // Zapisanie transakcji jako przychodzącej
+            Transaction transaction = new Transaction();
+            transaction.setReferenceNumber(generateReferenceNumber());
+            transaction.setTransactionType("INCOMING_SWIFT");
+            transaction.setStatus("COMPLETED");
+
+            transaction.setSenderIban("EXTERNAL_BANK");
+            transaction.setSenderName(senderName != null && !senderName.isBlank() ? senderName : "Bank zagraniczny (SWIFT)");
+            transaction.setSenderBic(senderBic);
+
+            transaction.setReceiverIban(receiverAccount.getIban());
+            transaction.setReceiverName(receiverAccount.getCustomer().getFirstName() + " " + receiverAccount.getCustomer().getLastName());
+
+            transaction.setAmount(amount);
+            transaction.setCurrency(currency);
+            transaction.setTitle(title != null && !title.isBlank() ? title : "Przelew przychodzący SWIFT");
+            transaction.setExternalMessageId(transactionId);
+            transaction.setCompletedAt(OffsetDateTime.now());
+
+            transactionRepository.save(transaction);
+            log.info("Pomyślnie zaksięgowano przychodzący przelew SWIFT o MsgId {} na konto {}", transactionId, receiverAccount.getIban());
+
+        } catch (Exception e) {
+            log.error("Błąd podczas przetwarzania przychodzącego webhooka SWIFT: {}", e.getMessage(), e);
+            throw new RuntimeException("Nie udało się przetworzyć komunikatu SWIFT", e);
+        }
     }
 }

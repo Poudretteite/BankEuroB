@@ -141,10 +141,10 @@ public class SwiftXmlGenerator {
     private String escapeXml(String value) {
         if (value == null) return "";
         return value
-                .replace("&", "&")
-                .replace("<", "<")
-                .replace(">", ">")
-                .replace("\"", "&#34;")
-                .replace("'", "'");
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
     }
 }
