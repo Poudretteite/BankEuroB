@@ -96,6 +96,15 @@ if errorlevel 1 (
 )
 echo  [OK] SWIFT uruchomiony
 
+echo [7.5/8] Podlaczanie zewnetrznych systemow do wspolnej sieci BankEuroB...
+docker network connect --alias target-service bankeurob-unified-net target_service 2>nul
+docker network connect --alias sepa-batch-service bankeurob-unified-net sepa_batch_service 2>nul
+docker network connect --alias sepa-instant-service bankeurob-unified-net sepa_instant_service 2>nul
+docker network connect --alias cards-gateway-app bankeurob-unified-net cards_gateway_app 2>nul
+docker network connect --alias klik-web bankeurob-unified-net klik-payments-web-1 2>nul
+docker network connect --alias swift-app bankeurob-unified-net swift-app 2>nul
+echo  [OK] Systemy zewnetrzne podlaczone
+
 echo [8/8] Oczekiwanie na gotowosc backendu...
 cd /d %~dp0
 timeout /t 30 /nobreak >nul

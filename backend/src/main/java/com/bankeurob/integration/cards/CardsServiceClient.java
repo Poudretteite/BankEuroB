@@ -180,9 +180,7 @@ public class CardsServiceClient {
             escapeJson(newStatus), escapeJson(reason != null ? reason : "")
         );
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-API-Key", API_KEY);
+        HttpHeaders headers = buildSignedHeaders(bodyJson);
 
         HttpEntity<String> entity = new HttpEntity<>(bodyJson, headers);
 
