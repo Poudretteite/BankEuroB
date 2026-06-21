@@ -377,10 +377,6 @@ public class BlikService {
     }
 
     private String resolveZone(Customer customer) {
-        String country = customer.getAddressCountry();
-        if ("PL".equals(country)) return "PL";
-        if ("GB".equals(country) || "UK".equals(country)) return "UK";
-        if ("US".equals(country)) return "US";
-        return "EU"; // default dla DE, FR, IT, ES itp.
+        return "EU"; // BankEuroB jest bankiem w strefie EU (DE) i obsługuje rachunki w EUR
     }
 }

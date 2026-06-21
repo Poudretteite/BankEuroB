@@ -42,6 +42,11 @@ public class BankEuroBApplication {
                     log.info("TARGET: Połączenie nawiązane (próba {}/12)", attempt);
                     break;
                 } catch (Exception e) {
+                    if (e.getMessage() != null && e.getMessage().contains("already exists")) {
+                        targetAvailable = true;
+                        log.info("TARGET: Połączenie nawiązane (bank już istnieje) (próba {}/12)", attempt);
+                        break;
+                    }
                     log.warn("TARGET: Próba {}/12 – serwis niedostępny ({}), retry za 5s...",
                             attempt, e.getMessage());
                     Thread.sleep(5000);

@@ -91,8 +91,8 @@ integration:
       connect-timeout: 5000
       read-timeout: 10000
   klik:
-    base-url: "http://klik-payments-web-1:8000"
-    api-key: "${KLIK_API_KEY:}"
+    base-url: "http://klik-web:8000"
+    api-key: "${KLIK_API_KEY:klik_Hxr6LLWzofIEktkaUuxQ1onsi7vaIfDwhC8gH0Qfwco}"
     connect-timeout: 5000
     read-timeout: 10000
 
