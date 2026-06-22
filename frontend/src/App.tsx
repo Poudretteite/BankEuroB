@@ -12,6 +12,7 @@ const BlikPage = lazy(() => import('./pages/BlikPage').then(m => ({ default: m.B
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const CardsPage = lazy(() => import('./pages/CardsPage').then(m => ({ default: m.CardsPage })));
+const OpenBankingPage = lazy(() => import('./pages/OpenBankingPage').then(m => ({ default: m.OpenBankingPage })));
 
 // Minimalny loader — pokazywany podczas ładowania kodu strony
 const PageLoader = () => (
@@ -121,6 +122,16 @@ function App() {
               <PrivateRoute>
                 <Layout>
                   <CardsPage />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/openbanking"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <OpenBankingPage />
                 </Layout>
               </PrivateRoute>
             }

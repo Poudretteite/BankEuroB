@@ -1,5 +1,6 @@
 package com.bankeurob.integration.klik.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class KlikConfirmPaymentResponse {
     @JsonProperty("transaction_id")
     private String transactionId;
@@ -29,4 +31,18 @@ public class KlikConfirmPaymentResponse {
 
     @JsonProperty("agent_fee")
     private String agentFee;
+
+    @JsonProperty("amount_gross")
+    private String amountGross;
+
+    @JsonProperty("currency")
+    private String currency;
+
+    @JsonProperty("reject_reason")
+    private String rejectReason;
+
+    @JsonProperty("completed_at")
+    private String completedAt;
 }
+
+// missing JsonIgnoreProperties

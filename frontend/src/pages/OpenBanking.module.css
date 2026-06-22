@@ -1,0 +1,179 @@
+.container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.linkButton {
+  padding: 10px 20px;
+  background-color: var(--accent-gold);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.linkButton:hover {
+  opacity: 0.9;
+}
+
+.accountsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.accountCard {
+  background: var(--glass-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--glass-border);
+}
+
+.bankBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: rgba(67, 56, 202, 0.1);
+  color: #4338ca;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.balance {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 8px 0;
+}
+
+.iban {
+  font-family: monospace;
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.transferButton {
+  width: 100%;
+  padding: 8px;
+  background-color: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.transferButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Modal styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--bg-color);
+  padding: 24px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal h2 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.formGroup input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  box-sizing: border-box;
+  background: var(--glass-bg);
+  color: var(--text-primary);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.submitBtn {
+  padding: 8px 16px;
+  background: var(--accent-gold);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.errorMsg {
+  color: #dc2626;
+  font-size: 14px;
+  margin-bottom: 16px;
+  padding: 10px;
+  background-color: #fef2f2;
+  border-radius: 6px;
+}

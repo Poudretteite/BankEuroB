@@ -21,3 +21,5 @@ public class KlikRegisterAliasResponse {
     @JsonProperty("registered_at")
     private String registeredAt;
 }
+
+// missing JsonIgnoreProperties

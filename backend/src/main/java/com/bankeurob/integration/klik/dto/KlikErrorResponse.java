@@ -44,3 +44,5 @@ public class KlikErrorResponse {
         private String timestamp;
     }
 }
+
+// missing JsonIgnoreProperties

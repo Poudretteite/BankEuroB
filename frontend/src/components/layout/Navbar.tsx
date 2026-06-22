@@ -3,7 +3,7 @@ import styles from './Navbar.module.css';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
-import { LogOut, Home, Send, Wallet, Sun, Moon, Settings, List, KeyRound, CreditCard } from 'lucide-react';
+import { LogOut, Home, Send, Wallet, Sun, Moon, Settings, List, KeyRound, CreditCard, Globe } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -63,6 +63,13 @@ export const Navbar: React.FC = () => {
           >
             <CreditCard size={18} />
             <span>Karty</span>
+          </Link>
+          <Link
+            to="/openbanking"
+            className={`${styles.navItem} ${isActive('/openbanking') ? styles.active : ''}`}
+          >
+            <Globe size={18} />
+            <span>Inne Banki</span>
           </Link>
         </div>
 

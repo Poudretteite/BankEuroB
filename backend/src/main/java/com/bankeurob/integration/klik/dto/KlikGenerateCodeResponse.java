@@ -23,3 +23,5 @@ public class KlikGenerateCodeResponse {
     @JsonProperty("expires_at")
     private String expiresAt;
 }
+
+// missing JsonIgnoreProperties

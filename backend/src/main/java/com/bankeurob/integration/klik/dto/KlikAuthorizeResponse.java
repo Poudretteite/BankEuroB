@@ -21,3 +21,5 @@ public class KlikAuthorizeResponse {
     @JsonProperty("will_prompt_user")
     private boolean willPromptUser;
 }
+
+// missing JsonIgnoreProperties

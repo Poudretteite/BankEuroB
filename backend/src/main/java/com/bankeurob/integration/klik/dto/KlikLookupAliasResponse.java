@@ -26,3 +26,5 @@ public class KlikLookupAliasResponse {
     @JsonProperty("account_identifier")
     private KlikRegisterAliasRequest.AccountIdentifier accountIdentifier;
 }
+
+// missing JsonIgnoreProperties

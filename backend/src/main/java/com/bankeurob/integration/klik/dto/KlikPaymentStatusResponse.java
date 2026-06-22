@@ -37,3 +37,5 @@ public class KlikPaymentStatusResponse {
     @JsonProperty("completed_at")
     private String completedAt;
 }
+
+// missing JsonIgnoreProperties

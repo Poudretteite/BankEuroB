@@ -21,6 +21,9 @@ import {
 import styles from './Blik.module.css';
 import { useAuthStore } from '../store/useAuthStore';
 import axiosClient from '../api/axiosClient';
+import { useQuery } from '@tanstack/react-query';
+import { BlikAliasRegister } from '../components/blik/BlikAliasRegister';
+import { BlikP2PTransfer } from '../components/blik/BlikP2PTransfer';
 
 // ─── Typy ─────────────────────────────────────────────────────────────────
 interface PendingTransaction {
@@ -75,6 +78,15 @@ function usePinVisibility() {
 export const BlikPage: React.FC = () => {
   const navigate = useNavigate();
   const { getHasBlikPin, setHasBlikPin } = useAuthStore();
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const res = await axiosClient.get('/accounts');
+      return res.data;
+    },
+    staleTime: 30000,
+  });
 
   const [step, setStep] = useState<'code' | 'pending' | 'confirm' | 'processing' | 'success' | 'error'>('code');
   const [blikCode, setBlikCode] = useState('');
@@ -787,6 +799,11 @@ export const BlikPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* KLIK P2P - Przelew i Rejestracja (Zawsze widoczne pod BLIKIEM) */}
+      <BlikP2PTransfer accounts={accounts} />
+      <BlikAliasRegister accounts={accounts} />
+
     </div>
   );
 };
