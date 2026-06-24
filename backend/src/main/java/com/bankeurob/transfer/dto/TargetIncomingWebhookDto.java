@@ -6,7 +6,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 @Data
 public class TargetIncomingWebhookDto {
@@ -45,7 +45,7 @@ public class TargetIncomingWebhookDto {
     private String description;
 
     @JsonProperty("settled_at")
-    private OffsetDateTime settledAt;
+    private LocalDateTime settledAt;
 
     @JsonProperty("signature")
     private String signature;

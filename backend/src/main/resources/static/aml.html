@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BankEuroB - Panel AML</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #d32f2f; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-approve { background-color: #4CAF50; }
+        .btn-reject { background-color: #f44336; }
+        .btn:hover { opacity: 0.9; }
+        .empty { text-align: center; color: #666; font-style: italic; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Panel Weryfikacji AML</h1>
+        <p>Wszystkie transakcje zatrzymane przez system Anti-Money Laundering.</p>
+        
+        <table id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>ID Transakcji</th>
+                    <th>Nadawca</th>
+                    <th>Odbiorca</th>
+                    <th>Kwota</th>
+                    <th>Tytuł</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="6" class="empty">Ładowanie danych...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function fetchBlocked() {
+            try {
+                const response = await fetch('/api/aml/blocked');
+                const data = await response.json();
+                const tbody = document.getElementById('tableBody');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty">Brak zablokowanych przelewów do weryfikacji.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                data.forEach(tx => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><small>${tx.id}</small></td>
+                        <td>${tx.senderName}<br><small>${tx.senderIban}</small></td>
+                        <td>${tx.receiverName}<br><small>${tx.receiverIban}</small></td>
+                        <td><b>${tx.amount} ${tx.currency}</b></td>
+                        <td>${tx.title}</td>
+                        <td>
+                            <button class="btn btn-approve" onclick="resolve('${tx.id}', 'APPROVE')">Akceptuj</button>
+                            <button class="btn btn-reject" onclick="resolve('${tx.id}', 'REJECT')">Odrzuć</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="empty" style="color:red">Błąd połączenia z serwerem.</td></tr>';
+            }
+        }
+
+        async function resolve(id, decision) {
+            if (!confirm(`Czy na pewno chcesz ${decision === 'APPROVE' ? 'ZAAKCEPTOWAĆ' : 'ODRZUCIĆ'} ten przelew?`)) return;
+            
+            try {
+                const response = await fetch(`/api/aml/admin/resolve/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ decision })
+                });
+                
+                if (response.ok) {
+                    alert('Operacja zakończona sukcesem!');
+                    fetchBlocked();
+                } else {
+                    alert('Wystąpił błąd podczas zatwierdzania.');
+                }
+            } catch (error) {
+                alert('Błąd połączenia.');
+            }
+        }
+
+        fetchBlocked();
+    </script>
+</body>
+</html>

@@ -46,7 +46,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/api/transfers/webhook/**").permitAll()
                         .requestMatchers("/api/cards/status", "/api/klik/status").permitAll()
+                        .requestMatchers("/api/cards/webhook/**").permitAll()
                         .requestMatchers("/api/klik/webhook/**").permitAll()
+                        .requestMatchers("/api/aml/**").permitAll()
+                        .requestMatchers("/aml.html").permitAll()
                         .requestMatchers("/api/junior/**").authenticated()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()

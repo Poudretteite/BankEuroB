@@ -12,5 +12,6 @@ public interface BlikTransactionRepository extends JpaRepository<BlikTransaction
     Optional<BlikTransaction> findByKlikTransactionId(String klikTransactionId);
     List<BlikTransaction> findByCustomerIdAndStatusOrderByReceivedAtDesc(UUID customerId, String status);
     List<BlikTransaction> findByCustomerIdOrderByReceivedAtDesc(UUID customerId);
+    List<BlikTransaction> findByAccountIdOrderByReceivedAtDesc(UUID accountId);
     List<BlikTransaction> findByStatusAndExpiryTimeBefore(String status, java.time.OffsetDateTime now);
 }

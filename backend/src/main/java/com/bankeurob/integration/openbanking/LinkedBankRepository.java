@@ -7,4 +7,5 @@ import java.util.UUID;
 public interface LinkedBankRepository extends JpaRepository<LinkedBank, UUID> {
     List<LinkedBank> findByCustomerId(UUID customerId);
     boolean existsByCustomerIdAndBankUrl(UUID customerId, String bankUrl);
+    java.util.Optional<LinkedBank> findByCustomerIdAndBankUrl(UUID customerId, String bankUrl);
 }

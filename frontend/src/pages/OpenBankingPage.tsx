@@ -26,6 +26,18 @@ export function OpenBankingPage() {
     }
   };
 
+  const handleUnlink = async (linkedBankId: string) => {
+    if (confirm('Czy na pewno chcesz usunąć to połączone konto?')) {
+      try {
+        await openBankingApi.unlinkBank(linkedBankId);
+        fetchAccounts();
+      } catch (err) {
+        console.error('Failed to unlink bank', err);
+        alert('Nie udało się usunąć połączenia.');
+      }
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -45,18 +57,35 @@ export function OpenBankingPage() {
         <div className={styles.accountsGrid}>
           {accounts.map(acc => (
             <div key={acc.id} className={styles.accountCard}>
-              <span className={styles.bankBadge}>{acc.bankUrl}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span className={styles.bankBadge}>
+                  {acc.bankUrl.includes('8090') ? 'Bank Euro A' : 
+                   acc.bankUrl.replace('http://host.docker.internal:', 'Inny Bank :')}
+                </span>
+              </div>
+              {acc.ownerName && <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>👤 {acc.ownerName}</div>}
               <div className={styles.balance}>{acc.balance.toFixed(2)} {acc.currency}</div>
-              <div className={styles.iban}>{acc.iban}</div>
-              <button 
-                className={styles.transferButton}
-                onClick={() => {
-                  setSelectedAccount(acc);
-                  setShowTransferModal(true);
-                }}
-              >
-                Zleć przelew z tego konta
-              </button>
+              <div className={styles.iban}>{acc.iban || acc.accountNumber}</div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                <button 
+                  className={styles.transferButton}
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    setSelectedAccount(acc);
+                    setShowTransferModal(true);
+                  }}
+                >
+                  Zleć przelew
+                </button>
+                <button 
+                  className={styles.transferButton}
+                  style={{ flex: 0, backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0 12px' }}
+                  onClick={() => handleUnlink(acc.linkedBankId)}
+                  title="Usuń połączenie z bankiem"
+                >
+                  Usuń
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -137,6 +166,7 @@ function LinkBankModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
 
 function ExternalTransferModal({ account, onClose, onSuccess }: { account: ExternalAccount, onClose: () => void, onSuccess: () => void }) {
   const [toAccount, setToAccount] = useState('');
+  const [bic, setBic] = useState('');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [error, setError] = useState('');
@@ -151,6 +181,7 @@ function ExternalTransferModal({ account, onClose, onSuccess }: { account: Exter
         linkedBankId: account.linkedBankId,
         fromAccountId: account.id,
         toAccountNumber: toAccount,
+        bic: bic,
         amount: parseFloat(amount),
         currency: account.currency,
         description: desc || 'Przelew zewnętrzny'
@@ -175,6 +206,10 @@ function ExternalTransferModal({ account, onClose, onSuccess }: { account: Exter
           <div className={styles.formGroup}>
             <label>Na konto (IBAN)</label>
             <input value={toAccount} onChange={e => setToAccount(e.target.value)} required placeholder="DE..." />
+          </div>
+          <div className={styles.formGroup}>
+            <label>BIC / SWIFT (wymagany dla SEPA)</label>
+            <input value={bic} onChange={e => setBic(e.target.value)} required placeholder="Nbp..." />
           </div>
           <div className={styles.formGroup}>
             <label>Kwota</label>

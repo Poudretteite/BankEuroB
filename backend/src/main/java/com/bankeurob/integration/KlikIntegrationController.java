@@ -214,7 +214,7 @@ public class KlikIntegrationController {
     public ResponseEntity<?> registerAlias(
             @RequestParam String phone,
             @RequestParam String iban,
-            @RequestParam(defaultValue = "PL") String zone) {
+            @RequestParam(defaultValue = "EU") String zone) {
         log.info("Rejestracja aliasu P2P: phone={}, iban={}, zone={}", phone, iban, zone);
         try {
             KlikRegisterAliasResponse response = klikServiceClient.registerAlias(phone, iban, zone);

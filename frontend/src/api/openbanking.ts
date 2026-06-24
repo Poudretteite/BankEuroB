@@ -4,10 +4,12 @@ export interface ExternalAccount {
   id: string;
   linkedBankId: string;
   bankUrl: string;
-  iban: string;
+  iban?: string;
+  accountNumber?: string;
   balance: number;
   currency: string;
   accountType: string;
+  ownerName?: string;
 }
 
 export const openBankingApi = {
@@ -24,11 +26,16 @@ export const openBankingApi = {
     linkedBankId: string;
     fromAccountId: string;
     toAccountNumber: string;
+    bic?: string;
     amount: number;
     currency: string;
     description: string;
   }) => {
     const response = await axiosClient.post('/open-banking/transfers', data);
     return response.data;
+  },
+
+  unlinkBank: async (linkedBankId: string) => {
+    return axiosClient.delete(`/open-banking/link/${linkedBankId}`);
   }
 };

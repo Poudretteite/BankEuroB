@@ -21,6 +21,12 @@ public class SettlementRequest {
     @JsonProperty("receiver_bic")
     private String receiverBic;
 
+    @JsonProperty("sender_iban")
+    private String senderIban;
+
+    @JsonProperty("receiver_iban")
+    private String receiverIban;
+
     private BigDecimal amount;
 
     private String currency = "EUR";

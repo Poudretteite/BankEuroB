@@ -2,6 +2,7 @@ package com.bankeurob.integration.cards;
 
 import com.bankeurob.integration.cards.config.CardsGatewayConfig;
 import com.bankeurob.integration.cards.dto.*;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -29,6 +30,8 @@ import java.time.Instant;
  * <p>
  * Autoryzacja banku: X-API-Key + X-Signature (HMAC-SHA256) + X-Timestamp (max 30s)
  */
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,9 +39,10 @@ public class CardsServiceClient {
 
     private final RestTemplate restTemplate;
     private final CardsGatewayConfig config;
+    private final ObjectMapper objectMapper;
 
-    private static final String API_KEY = "bank-key-pl-a";
-    private static final String HMAC_SECRET = "secret-pl-a-hmac";
+    private static final String API_KEY = "bank-key-eu-b";
+    private static final String HMAC_SECRET = "secret-eu-b-hmac";
 
     // ─────────────────────────────────────────────────
     // Wydanie karty (POST /api/v1/cards/issue)
@@ -242,11 +246,99 @@ public class CardsServiceClient {
                 .replace("\t", "\\t");
     }
 
+    // ─────────────────────────────────────────────────
+    // Doładowanie karty prepaid (POST /api/v1/cards/{token}/topup)
+    // ─────────────────────────────────────────────────
+
     /**
-     * Buduje nagłówki z podpisem HMAC-SHA256.
-     * <p>
-     * Algorytm (zgodny z test_hmac.py):
-     * 1. timestamp = str(int(time.time()))
+     * Doładowuje kartę prepaid podaną kwotą.
+     */
+    public void topupCard(String cardToken, java.math.BigDecimal amount) {
+        String url = config.getBaseUrl() + "/api/v1/cards/" + cardToken + "/topup";
+        log.info("Wysyłanie doładowania karty: token={}, kwota={}", cardToken, amount);
+
+        try {
+            TopUpRequest requestBody = new TopUpRequest();
+            requestBody.setAmount(amount);
+
+            String bodyJson = objectMapper.writeValueAsString(requestBody);
+            HttpHeaders headers = buildSignedHeaders(bodyJson);
+            HttpEntity<String> request = new HttpEntity<>(bodyJson, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.POST, request, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Błąd doładowania. Status: " + response.getStatusCode());
+            }
+
+            log.info("Karta {} doładowana pomyślnie.", cardToken);
+
+        } catch (ResourceAccessException e) {
+            log.error("Payment Gateway niedostępny: {}", e.getMessage());
+            throw new ResourceAccessException("Payment Gateway jest wyłączony na " + config.getBaseUrl());
+        } catch (Exception e) {
+            log.error("Błąd doładowania karty {}: {}", cardToken, e.getMessage());
+            throw new RuntimeException("Błąd doładowania karty: " + e.getMessage(), e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // Aktywacja karty (POST /api/v1/cards/{token}/activate)
+    // ─────────────────────────────────────────────────
+
+    /**
+     * Aktywuje kartę przez klienta.
+     * Karta musi być w statusie SHIPPED.
+     */
+    public void activateCard(String cardToken) {
+        String url = config.getBaseUrl() + "/api/v1/cards/" + cardToken + "/activate";
+        log.info("Wysyłanie aktywacji karty: token={}", cardToken);
+
+        try {
+            ActivateCardBody requestBody = new ActivateCardBody();
+            requestBody.setActivated_by("customer");
+
+            String bodyJson = objectMapper.writeValueAsString(requestBody);
+            HttpHeaders headers = buildSignedHeaders(bodyJson);
+            HttpEntity<String> request = new HttpEntity<>(bodyJson, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.POST, request, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Błąd aktywacji. Status: " + response.getStatusCode());
+            }
+
+            log.info("Karta {}aktywowana pomyślnie.", cardToken);
+
+        } catch (ResourceAccessException e) {
+            log.error("Payment Gateway niedostępny: {}", e.getMessage());
+            throw new ResourceAccessException("Payment Gateway jest wyłączony na " + config.getBaseUrl());
+        } catch (Exception e) {
+            log.error("Błąd aktywacji karty {}: {}", cardToken, e.getMessage());
+            throw new RuntimeException("Błąd aktywacji karty: " + e.getMessage(), e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // Podpisywanie żądań (HMAC)
+    // ─────────────────────────────────────────────────
+
+    @Data
+    private static class ActivateCardBody {
+        private String activated_by;
+    }
+
+    @Data
+    private static class TopUpRequest {
+        private java.math.BigDecimal amount;
+    }
+
+    /**
+     * Buduje nagłówki z podpisem HMAC.
+     * Algorytm (Payment Gateway wymaga):
+     * 1. timestamp = unix_timestamp_in_seconds
      * 2. body_json = json.dumps(body, separators=(',', ':'), sort_keys=True)
      * 3. payload = timestamp + body_json
      * 4. signature = hmac.new(secret, payload, hashlib.sha256).hexdigest()

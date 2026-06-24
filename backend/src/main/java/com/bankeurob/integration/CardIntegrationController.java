@@ -99,14 +99,38 @@ public class CardIntegrationController {
     public ResponseEntity<?> processCaptureWebhook(@RequestBody CardWebhookRequest request) {
         try {
             cardService.processCaptureWebhook(request);
-            return ResponseEntity.ok(Map.of("success", true, "message", "Obciążono rachunek"));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(402).body(Map.of("success", false, "error", e.getMessage()));
+            return ResponseEntity.ok(Map.of("status", "success"));
         } catch (Exception e) {
-            log.error("Błąd webhooka: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of("success", false, "error", e.getMessage()));
+            log.error("Błąd przetwarzania webhooka capture: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // Doładowanie karty PREPAID
+    // ─────────────────────────────────────────────────
+
+    @PostMapping("/{cardToken}/topup")
+    @Operation(summary = "Doładowanie karty Prepaid",
+               description = "Pozwala na doładowanie konta karty PREPAID. Pobiera środki z głównego konta BankEuroB i przesyła je na kartę.")
+    public ResponseEntity<?> topupCard(
+            @PathVariable String cardToken,
+            @RequestBody Map<String, java.math.BigDecimal> requestBody,
+            Authentication auth) {
+        
+        java.math.BigDecimal amount = requestBody.get("amount");
+        if (amount == null || amount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nieprawidłowa kwota doładowania"));
+        }
+
+        try {
+            cardService.topupCard(cardToken, amount);
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Karta została pomyślnie doładowana"));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Błąd doładowania karty {}: {}", cardToken, e.getMessage());
+            return ResponseEntity.status(503).body(Map.of("error", "Błąd systemu podczas doładowania: " + e.getMessage()));
         }
     }
 
@@ -190,6 +214,31 @@ public class CardIntegrationController {
         } catch (Exception e) {
             log.error("Błąd zmiany statusu karty {}: {}", cardToken, e.getMessage());
             return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // Aktywacja karty
+    // ─────────────────────────────────────────────────
+
+    @PostMapping("/{cardToken}/activate")
+    @Operation(summary = "Aktywuj kartę",
+               description = "Pozwala użytkownikowi na aktywację fizycznej/prepaid karty po jej otrzymaniu (status SHIPPED).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Karta aktywowana pomyślnie"),
+        @ApiResponse(responseCode = "503", description = "Payment Gateway niedostępny")
+    })
+    public ResponseEntity<?> activateCard(@PathVariable String cardToken) {
+        log.info("Aktywacja karty przez użytkownika: token={}", cardToken);
+        try {
+            cardsServiceClient.activateCard(cardToken);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Karta została aktywowana pomyślnie i jest gotowa do użycia."));
+        } catch (ResourceAccessException e) {
+            return ResponseEntity.status(503).body(Map.of("error",
+                "Payment Gateway jest wyłączony. Uruchom serwis na porcie 8072."));
+        } catch (Exception e) {
+            log.error("Błąd aktywacji karty {}: {}", cardToken, e.getMessage());
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }
     }
 

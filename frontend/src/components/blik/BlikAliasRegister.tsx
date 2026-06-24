@@ -30,7 +30,7 @@ export const BlikAliasRegister: React.FC<BlikAliasRegisterProps> = ({ accounts }
 
     try {
       const iban = accounts[0].iban;
-      await axiosClient.post(`/klik/aliases/register?phone=${encodeURIComponent(aliasPhone)}&iban=${iban}&zone=PL`);
+      await axiosClient.post(`/klik/aliases/register?phone=${encodeURIComponent(aliasPhone)}&iban=${iban}&zone=EU`);
       setAliasSuccess(true);
       setAliasPhone('');
       setTimeout(() => setAliasSuccess(false), 5000);
@@ -67,10 +67,10 @@ export const BlikAliasRegister: React.FC<BlikAliasRegisterProps> = ({ accounts }
 
       <form onSubmit={onRegisterAlias} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>
-          <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Twój numer telefonu (np. +48111222333)</label>
+          <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Twój numer telefonu (np. +49111222333)</label>
           <input
             type="text"
-            placeholder="+48..."
+            placeholder="+49..."
             value={aliasPhone}
             onChange={(e) => setAliasPhone(e.target.value)}
             style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--glass-border)', color: 'white', outline: 'none' }}

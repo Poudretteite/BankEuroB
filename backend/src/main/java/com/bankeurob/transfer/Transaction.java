@@ -56,6 +56,7 @@ public class Transaction {
     // --- SENDER ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_account_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Account senderAccount;
 
     @Column(name = "sender_iban", nullable = false, length = 34)
@@ -104,6 +105,12 @@ public class Transaction {
 
     @Column(name = "external_message_id", length = 100)
     private String externalMessageId;
+
+    @Column(name = "aml_status", length = 30)
+    private String amlStatus; // BLOCKED, EXPLANATION_SUBMITTED, RESOLVED, REJECTED
+
+    @Column(name = "aml_explanation", columnDefinition = "TEXT")
+    private String amlExplanation;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

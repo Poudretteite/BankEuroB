@@ -63,6 +63,20 @@ export const CardsPage: React.FC = () => {
   const [newCardData, setNewCardData] = useState<IssueResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch accounts to check if user is a Junior
+  const { data: accountsData } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const response = await axiosClient.get<{ accountType: string }[]>('/accounts');
+      return response.data || [];
+    }
+  });
+  const isJunior = accountsData?.some(acc => acc.accountType === 'JUNIOR');
+
+  // Stan dla doładowania
+  const [topupFor, setTopupFor] = useState<string | null>(null);
+  const [topupAmount, setTopupAmount] = useState<number>(50);
+
   // Stan dla edycji limitów
   const [editingLimitsFor, setEditingLimitsFor] = useState<string | null>(null);
   const [limitValues, setLimitValues] = useState({
@@ -88,7 +102,7 @@ export const CardsPage: React.FC = () => {
       const response = await axiosClient.post<IssueResponse>('/cards/issue', {
         userId: user?.email || 'user',
         cardType: cardType,
-        initialBalance: cardType === 'PREPAID' ? 100.0 : 0.0,
+        initialBalance: 0.0,
       });
       return response.data;
     },
@@ -133,10 +147,41 @@ export const CardsPage: React.FC = () => {
     },
   });
 
+  // Doładowanie karty
+  const topupMutation = useMutation({
+    mutationFn: async ({ cardToken, amount }: { cardToken: string; amount: number }) => {
+      await axiosClient.post(`/cards/${cardToken}/topup`, { amount });
+    },
+    onSuccess: () => {
+      setTopupFor(null);
+      setTopupAmount(50);
+      queryClient.invalidateQueries({ queryKey: ['externalCards'] });
+      // Odśwież konta jeśli są wyświetlane gdzieś indziej
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (err: any) => {
+      setError(err.response?.data?.error || err.message);
+    },
+  });
+
+  // Aktywacja karty
+  const activateMutation = useMutation({
+    mutationFn: async (cardToken: string) => {
+      await axiosClient.post(`/cards/${cardToken}/activate`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['externalCards'] });
+    },
+    onError: (err: any) => {
+      setError(err.response?.data?.error || err.message);
+    },
+  });
+
   const handleIssueCard = () => {
     setNewCardData(null);
     setError(null);
-    issueMutation.mutate(selectedType);
+    const cardToIssue = isJunior ? 'PREPAID' : selectedType;
+    issueMutation.mutate(cardToIssue);
   };
 
   const handleBlockCard = (cardToken: string) => {
@@ -161,6 +206,10 @@ export const CardsPage: React.FC = () => {
 
   const saveLimits = (cardToken: string) => {
     limitsMutation.mutate({ cardToken, limits: limitValues });
+  };
+
+  const handleTopup = (cardToken: string) => {
+    topupMutation.mutate({ cardToken, amount: topupAmount });
   };
 
   const getStatusBadge = (status: string) => {
@@ -199,10 +248,10 @@ export const CardsPage: React.FC = () => {
         <div className={`glass-panel ${styles.issueForm}`}>
           <h3>Wybierz typ karty</h3>
           <div className={styles.cardTypeGrid}>
-            {CARD_TYPES.map((type) => (
+            {CARD_TYPES.filter(type => !isJunior || type.value === 'PREPAID').map((type) => (
               <button
                 key={type.value}
-                className={`${styles.cardTypeOption} ${selectedType === type.value ? styles.cardTypeSelected : ''}`}
+                className={`${styles.cardTypeOption} ${(!isJunior ? selectedType : 'PREPAID') === type.value ? styles.cardTypeSelected : ''}`}
                 onClick={() => setSelectedType(type.value)}
               >
                 <strong>{type.label}</strong>
@@ -211,19 +260,19 @@ export const CardsPage: React.FC = () => {
             ))}
           </div>
 
-          {error && (
-            <div className={styles.errorBox}>
-              <AlertCircle size={16} /> {error}
-            </div>
-          )}
-
           <button
             className={styles.confirmIssueButton}
             onClick={handleIssueCard}
             disabled={issueMutation.isPending}
           >
-            {issueMutation.isPending ? 'Wydawanie karty...' : `Wydaj kartę ${CARD_TYPES.find(t => t.value === selectedType)?.label}`}
+            {issueMutation.isPending ? 'Wydawanie karty...' : `Wydaj kartę ${CARD_TYPES.find(t => t.value === (!isJunior ? selectedType : 'PREPAID'))?.label}`}
           </button>
+        </div>
+      )}
+
+      {error && (
+        <div className={styles.errorBox}>
+          <AlertCircle size={16} /> {error}
         </div>
       )}
 
@@ -285,15 +334,17 @@ export const CardsPage: React.FC = () => {
                   {getStatusBadge(card.status)}
                 </div>
 
-                <div className={styles.cardDetails}>
-                  <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Saldo:</span>
-                    <span className={styles.detailValue}>
-                      {card.balance?.toFixed(2)} {card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}
-                    </span>
-                  </div>
+                  <div className={styles.cardDetails}>
+                    {card.cardType === 'PREPAID' && (
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Saldo:</span>
+                        <span className={styles.detailValue}>
+                          {card.balance?.toFixed(2)} {card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}
+                        </span>
+                      </div>
+                    )}
                   
-                  {editingLimitsFor === card.cardToken ? (
+                    {editingLimitsFor === card.cardToken ? (
                     <div className={styles.limitsEditForm}>
                       <div className={styles.detailRow}>
                         <span className={styles.detailLabel}>Limit dzienny ({card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}):</span>
@@ -316,6 +367,19 @@ export const CardsPage: React.FC = () => {
                           {limitsMutation.isPending ? 'Zapisywanie...' : 'Zapisz'}
                         </button>
                         <button onClick={() => setEditingLimitsFor(null)} className={styles.cancelButton}>Anuluj</button>
+                      </div>
+                    </div>
+                  ) : topupFor === card.cardToken ? (
+                    <div className={styles.limitsEditForm}>
+                      <div className={styles.detailRow}>
+                        <span className={styles.detailLabel}>Kwota ({card.bankId?.startsWith('PL') ? 'PLN' : 'EUR'}):</span>
+                        <input type="number" min="1" value={topupAmount} onChange={e => setTopupAmount(Number(e.target.value))} className={styles.limitInput} />
+                      </div>
+                      <div className={styles.editActionButtons}>
+                        <button onClick={() => handleTopup(card.cardToken)} disabled={topupMutation.isPending} className={styles.saveButton}>
+                          {topupMutation.isPending ? 'Ładowanie...' : 'Zasil'}
+                        </button>
+                        <button onClick={() => setTopupFor(null)} className={styles.cancelButton}>Anuluj</button>
                       </div>
                     </div>
                   ) : (
@@ -343,13 +407,22 @@ export const CardsPage: React.FC = () => {
                       <Lock size={14} /> Zablokuj
                     </button>
                   )}
-                  {card.status === 'ACTIVE' && editingLimitsFor !== card.cardToken && (
+                  {card.status === 'ACTIVE' && editingLimitsFor !== card.cardToken && topupFor !== card.cardToken && (
                     <button
                       className={styles.unblockButton}
                       onClick={() => startEditingLimits(card)}
                       style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white' }}
                     >
                       <Settings size={14} /> Limity
+                    </button>
+                  )}
+                  {card.status === 'ACTIVE' && card.cardType === 'PREPAID' && editingLimitsFor !== card.cardToken && topupFor !== card.cardToken && (
+                    <button
+                      className={styles.unblockButton}
+                      onClick={() => setTopupFor(card.cardToken)}
+                      style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.5)', color: '#10b981' }}
+                    >
+                      <Plus size={14} /> Doładuj
                     </button>
                   )}
                   {card.status === 'BLOCKED' && (
@@ -361,9 +434,24 @@ export const CardsPage: React.FC = () => {
                       <Unlock size={14} /> Odblokuj
                     </button>
                   )}
+                  {card.status === 'SHIPPED' && (
+                    <button
+                      className={styles.unblockButton}
+                      onClick={() => activateMutation.mutate(card.cardToken)}
+                      disabled={activateMutation.isPending}
+                      style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.5)', color: '#3b82f6' }}
+                    >
+                      <CheckCircle size={14} /> {activateMutation.isPending ? 'Aktywacja...' : 'Aktywuj'}
+                    </button>
+                  )}
                   {card.status === 'REQUESTED' && (
                     <span className={styles.pendingInfo}>
-                      <Clock size={14} /> Oczekuje na aktywację
+                      <Clock size={14} /> W trakcie przetwarzania
+                    </span>
+                  )}
+                  {card.status === 'PRODUCING' && (
+                    <span className={styles.pendingInfo}>
+                      <Clock size={14} /> W produkcji
                     </span>
                   )}
                 </div>

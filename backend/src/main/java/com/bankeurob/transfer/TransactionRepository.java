@@ -15,6 +15,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     Optional<Transaction> findByReferenceNumber(String referenceNumber);
     List<Transaction> findBySenderAccountIdOrReceiverIban(UUID accountId, String recipientIban);
     List<Transaction> findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(String senderIban, String receiverIban);
+    List<Transaction> findByStatus(String status);
 
     /**
      * Oblicza sumę kwot transakcji dla danego konta nadawcy z dzisiejszego dnia.

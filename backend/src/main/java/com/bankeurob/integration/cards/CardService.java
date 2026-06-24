@@ -45,6 +45,10 @@ public class CardService {
                     .orElseThrow(() -> new IllegalArgumentException("Klient nie posiada żadnego rachunku"));
         }
 
+        if ("JUNIOR".equals(account.getAccountType()) && !"PREPAID".equals(request.getCardType())) {
+            throw new IllegalArgumentException("Dla konta JUNIOR można zamówić wyłącznie kartę PREPAID.");
+        }
+
         // Przygotowanie danych dla Payment Gateway
         request.setUserId(customer.getId().toString());
         request.setAccountId(account.getIban()); // Gateway oczekuje unikalnego identyfikatora np. IBAN
@@ -87,6 +91,9 @@ public class CardService {
                     c.setMonthlyLimit(localCard.getMonthlyLimit().doubleValue());
                     c.setDailyTxnLimit(localCard.getDailyTxnLimit());
                     c.setMonthlyTxnLimit(localCard.getMonthlyTxnLimit());
+                    if ("VIRTUAL".equals(localCard.getCardType()) || "PHYSICAL".equals(localCard.getCardType())) {
+                        c.setBalance(localCard.getAccount().getBalance().doubleValue());
+                    }
                     return c;
                 })
                 .toList();
@@ -131,14 +138,18 @@ public class CardService {
             throw new IllegalStateException("Przekroczono miesięczny limit transakcji karty");
         }
 
-        if (account.getBalance().compareTo(amount) < 0) {
-            log.error("Brak środków na rachunku {} dla transakcji {}", account.getIban(), webhookRequest.getTransactionId());
-            throw new IllegalStateException("Niewystarczające środki na koncie");
-        }
+        // Weryfikacja środków dla kart nie-PREPAID (PREPAID rozliczane są przez Card Providera z własnego salda karty)
+        if (!"PREPAID".equals(card.getCardType())) {
+            if (account.getBalance().compareTo(amount) < 0) {
+                log.error("Brak środków na rachunku {} dla transakcji {}", account.getIban(), webhookRequest.getTransactionId());
+                throw new IllegalStateException("Niewystarczające środki na koncie");
+            }
 
-        // Zmniejszenie salda
-        account.setBalance(account.getBalance().subtract(amount));
-        accountRepository.save(account);
+            // Zmniejszenie salda
+            account.setBalance(account.getBalance().subtract(amount));
+            account.setAvailableBalance(account.getAvailableBalance().subtract(amount));
+            accountRepository.save(account);
+        }
 
         com.bankeurob.transfer.Transaction transaction = new com.bankeurob.transfer.Transaction();
         transaction.setReferenceNumber("CARD-" + System.currentTimeMillis());
@@ -157,6 +168,47 @@ public class CardService {
 
         log.info("Pomyślnie obciążono rachunek {} kwotą {} dla autoryzacji {}",
                 account.getIban(), amount, webhookRequest.getAuthorizationCode());
+    }
+
+    @Transactional
+    public void topupCard(String cardToken, BigDecimal amount) {
+        PaymentCard card = paymentCardRepository.findByCardToken(cardToken)
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono karty dla podanego tokenu"));
+                
+        if (!"PREPAID".equals(card.getCardType())) {
+            throw new IllegalStateException("Doładować można tylko karty PREPAID");
+        }
+
+        Account account = card.getAccount();
+        if (account.getBalance().compareTo(amount) < 0) {
+            throw new IllegalStateException("Niewystarczające środki na koncie główym do zasilenia karty");
+        }
+
+        // Zmniejszenie salda na rachunku
+        account.setBalance(account.getBalance().subtract(amount));
+        account.setAvailableBalance(account.getAvailableBalance().subtract(amount));
+        accountRepository.save(account);
+
+        // Zgłoszenie doładowania do Payment Gateway
+        cardsServiceClient.topupCard(cardToken, amount);
+
+        // Zapisanie transakcji w systemie BankEuroB
+        com.bankeurob.transfer.Transaction transaction = new com.bankeurob.transfer.Transaction();
+        transaction.setReferenceNumber("TOPUP-" + System.currentTimeMillis());
+        transaction.setTransactionType("CARD_TOPUP");
+        transaction.setStatus("COMPLETED");
+        transaction.setSenderAccount(account);
+        transaction.setSenderIban(account.getIban());
+        transaction.setSenderName(account.getCustomer().getFirstName() + " " + account.getCustomer().getLastName());
+        transaction.setReceiverIban("N/A");
+        transaction.setReceiverName("Karta PREPAID " + cardToken);
+        transaction.setAmount(amount);
+        transaction.setCurrency(account.getCurrency() != null ? account.getCurrency() : "PLN");
+        transaction.setTitle("Doładowanie karty prepaid");
+        transaction.setCompletedAt(java.time.OffsetDateTime.now());
+        transactionRepository.save(transaction);
+
+        log.info("Pomyślnie doładowano kartę {} kwotą {}", cardToken, amount);
     }
 
     @Transactional

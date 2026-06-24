@@ -34,4 +34,10 @@ public class OpenBankingController {
     public ResponseEntity<Map<String, Object>> executeTransfer(@RequestBody ExternalTransferRequest request, Authentication authentication) {
         return ResponseEntity.ok(openBankingService.executeExternalTransfer(authentication.getName(), request));
     }
+
+    @DeleteMapping("/link/{linkedBankId}")
+    public ResponseEntity<Void> unlinkBank(@PathVariable java.util.UUID linkedBankId, Authentication authentication) {
+        openBankingService.unlinkBank(authentication.getName(), linkedBankId);
+        return ResponseEntity.ok().build();
+    }
 }

@@ -28,10 +28,6 @@ public class OpenBankingService {
         Customer customer = customerRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-        if (linkedBankRepository.existsByCustomerIdAndBankUrl(customer.getId(), request.getBankUrl())) {
-            throw new RuntimeException("This bank is already linked");
-        }
-
         // IMPORTANT: EuroBankA uses /auth/login
         String loginUrl = request.getBankUrl() + "/auth/login";
         Map<String, String> loginBody = new HashMap<>();
@@ -42,12 +38,20 @@ public class OpenBankingService {
             ResponseEntity<Map> response = restTemplate.postForEntity(loginUrl, loginBody, Map.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 String token = (String) response.getBody().get("token");
-                LinkedBank linkedBank = LinkedBank.builder()
-                        .customer(customer)
-                        .bankUrl(request.getBankUrl())
-                        .accessToken(token)
-                        .build();
-                linkedBankRepository.save(linkedBank);
+                
+                Optional<LinkedBank> existingLink = linkedBankRepository.findByCustomerIdAndBankUrl(customer.getId(), request.getBankUrl());
+                if (existingLink.isPresent()) {
+                    LinkedBank linkedBank = existingLink.get();
+                    linkedBank.setAccessToken(token);
+                    linkedBankRepository.save(linkedBank);
+                } else {
+                    LinkedBank linkedBank = LinkedBank.builder()
+                            .customer(customer)
+                            .bankUrl(request.getBankUrl())
+                            .accessToken(token)
+                            .build();
+                    linkedBankRepository.save(linkedBank);
+                }
             } else {
                 throw new RuntimeException("Failed to authenticate with external bank");
             }
@@ -104,7 +108,15 @@ public class OpenBankingService {
         
         Map<String, Object> transferBody = new HashMap<>();
         transferBody.put("fromAccountId", request.getFromAccountId());
-        transferBody.put("toAccountNumber", request.getToAccountNumber());
+        // Bank Euro A oczekuje kluczy 'toIban' oraz 'channel'
+        transferBody.put("toIban", request.getToAccountNumber());
+        System.out.println("DEBUG OPEN BANKING - request.getBic() is: " + request.getBic());
+        if (request.getBic() != null && !request.getBic().trim().isEmpty()) {
+            transferBody.put("bic", request.getBic());
+            transferBody.put("toBic", request.getBic());
+            transferBody.put("bicCode", request.getBic());
+        }
+        transferBody.put("channel", "SEPA");
         transferBody.put("amount", request.getAmount());
         transferBody.put("currency", request.getCurrency());
         transferBody.put("description", request.getDescription());
@@ -129,5 +141,20 @@ public class OpenBankingService {
         } catch (Exception e) {
             throw new RuntimeException("External transfer failed: " + e.getMessage());
         }
+    }
+
+    @Transactional
+    public void unlinkBank(String customerEmail, UUID linkedBankId) {
+        Customer customer = customerRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new RuntimeException("Customer not found"));
+
+        LinkedBank bank = linkedBankRepository.findById(linkedBankId)
+                .orElseThrow(() -> new RuntimeException("Linked bank not found"));
+
+        if (!bank.getCustomer().getId().equals(customer.getId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        linkedBankRepository.delete(bank);
     }
 }

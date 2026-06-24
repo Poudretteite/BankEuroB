@@ -11,6 +11,8 @@ import com.bankeurob.integration.target.TargetServiceClient;
 import com.bankeurob.integration.target.dto.SettlementRequest;
 import com.bankeurob.integration.target.dto.SettlementResponse;
 import com.bankeurob.integration.xml.Pain001Generator;
+import com.bankeurob.integration.klik.model.BlikTransaction;
+import com.bankeurob.integration.klik.model.BlikTransactionRepository;
 import com.bankeurob.security.CustomerUserDetails;
 import com.bankeurob.transfer.dto.TargetIncomingWebhookDto;
 import com.bankeurob.transfer.dto.TransactionDto;
@@ -27,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -51,6 +55,8 @@ public class TransferService {
     private final SwiftServiceClient swiftClient;
     private final SwiftXmlGenerator swiftXmlGenerator;
     private final Pain001Generator pain001Generator;
+    private final com.bankeurob.transfer.aml.AmlService amlService;
+    private final BlikTransactionRepository blikTransactionRepository;
 
     /**
      * Waliduje IBAN zgodnie ze standardem MOD-97 (ISO 7064).
@@ -175,7 +181,13 @@ public class TransferService {
 
         boolean isJunior = "JUNIOR".equals(senderAccount.getAccountType());
 
-        if (isJunior) {
+        transaction.setTitle(request.getTitle());
+        transaction.setRequestedAt(OffsetDateTime.now());
+
+        if (amlService.isSuspicious(transaction)) {
+            transaction.setStatus("AML_BLOCKED");
+            transaction.setAmlStatus("BLOCKED");
+        } else if (isJunior) {
             transaction.setStatus("PENDING");
         } else if ("SEPA_SCT".equals(request.getTransferType())) {
             transaction.setStatus("PROCESSING");
@@ -194,10 +206,9 @@ public class TransferService {
         transaction.setReceiverBic(request.getReceiverBic());
         transaction.setAmount(request.getAmount());
         transaction.setCurrency(senderAccount.getCurrency());
-        transaction.setTitle(request.getTitle());
-        transaction.setRequestedAt(OffsetDateTime.now());
+        // Usunięto ustawianie tytułu i daty tutaj, bo przeniesiono wyżej przed sprawdzeniem AML
 
-        if (!isJunior) {
+        if (!isJunior && !"AML_BLOCKED".equals(transaction.getStatus())) {
             // Zaktualizuj saldo nadawcy (kwota + prowizja)
             senderAccount.setBalance(senderAccount.getBalance().subtract(totalAmount));
             senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
@@ -235,13 +246,15 @@ public class TransferService {
                             transaction.getReferenceNumber());
 
                     SettlementResponse settlement = targetClient.settlePayment(new SettlementRequest(
-                            transaction.getReferenceNumber(),
+                            transaction.getId().toString(),
                             senderAccount.getBic(),
                             request.getReceiverBic(),
+                            senderAccount.getIban(),
+                            request.getReceiverIban(),
                             request.getAmount(),
                             senderAccount.getCurrency(),
                             request.getTitle(),
-                            request.getTransferType()
+                            "customer"
                     ));
 
                     transaction.setExternalMessageId(settlement.getTransactionId());
@@ -301,6 +314,12 @@ public class TransferService {
                 transaction.setStatus("FAILED");
                 transaction.setCompletedAt(OffsetDateTime.now());
             }
+        } else if ("AML_BLOCKED".equals(transaction.getStatus())) {
+            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
+            accountRepository.save(senderAccount);
+        } else if (isJunior) {
+            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
+            accountRepository.save(senderAccount);
         }
 
         Transaction saved = transactionRepository.save(transaction);
@@ -331,10 +350,28 @@ public class TransferService {
             throw new AccessDeniedException("Brak uprawnień do tego konta");
         }
 
-        return transactionRepository.findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(cleanIban, cleanIban)
+        // Pobierz standardowe transakcje
+        List<TransactionDto> transferTxs = transactionRepository
+                .findBySenderIbanOrReceiverIbanOrderByRequestedAtDesc(cleanIban, cleanIban)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+
+        // Pobierz transakcje BLIK dla tego konta
+        List<TransactionDto> blikTxs = blikTransactionRepository
+                .findByAccountIdOrderByReceivedAtDesc(account.getId())
+                .stream()
+                .filter(bt -> !"PENDING_AUTHORIZATION".equals(bt.getStatus()))
+                .map(bt -> blikToDto(bt, account))
+                .collect(Collectors.toList());
+
+        // Połącz i posortuj po dacie malejąco
+        List<TransactionDto> all = new ArrayList<>(transferTxs.size() + blikTxs.size());
+        all.addAll(transferTxs);
+        all.addAll(blikTxs);
+        all.sort(Comparator.comparing(TransactionDto::getRequestedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        return all;
     }
 
     @Transactional
@@ -375,9 +412,20 @@ public class TransferService {
         }
 
         // Process deduction
-        senderAccount.setBalance(senderAccount.getBalance().subtract(totalAmount));
-        senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
-        accountRepository.save(senderAccount);
+        if (!"AML_BLOCKED".equals(transaction.getStatus())) {
+            senderAccount.setBalance(senderAccount.getBalance().subtract(totalAmount));
+            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
+            accountRepository.save(senderAccount);
+        } else if ("AML_BLOCKED".equals(transaction.getStatus())) {
+            senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().subtract(totalAmount));
+            accountRepository.save(senderAccount);
+        }
+
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        if ("AML_BLOCKED".equals(savedTransaction.getStatus())) {
+            return;
+        }
 
         boolean isInternal = "INTERNAL".equals(transaction.getTransactionType());
         if (isInternal) {
@@ -404,13 +452,15 @@ public class TransferService {
                 sepaBatchClient.submitTransferXml(xml);
             } else if ("RTGS_TARGET2".equals(transaction.getTransactionType())) {
                 SettlementResponse settlement = targetClient.settlePayment(new SettlementRequest(
-                        transaction.getReferenceNumber(),
+                        transaction.getId().toString(),
                         senderAccount.getBic(),
                         transaction.getReceiverBic(),
+                        senderAccount.getIban(),
+                        transaction.getReceiverIban(),
                         transaction.getAmount(),
-                        transaction.getCurrency(),
+                        senderAccount.getCurrency(),
                         transaction.getTitle(),
-                        transaction.getTransactionType()
+                        "customer"
                 ));
                 transaction.setExternalMessageId(settlement.getTransactionId());
             } else if ("SWIFT".equals(transaction.getTransactionType())) {
@@ -485,6 +535,36 @@ public class TransferService {
                 .title(tx.getTitle())
                 .requestedAt(tx.getRequestedAt())
                 .completedAt(tx.getCompletedAt())
+                .build();
+    }
+
+    /**
+     * Konwertuje transakcję BLIK na TransactionDto,
+     * tak aby wyświetlała się w historii obok standardowych przelewów.
+     */
+    private TransactionDto blikToDto(BlikTransaction bt, Account account) {
+        String status = bt.getStatus();
+        // Mapowanie statusów BLIK na wspólne statusy historii
+        if ("TIMEOUT".equals(status)) {
+            status = "FAILED";
+        } else if ("PENDING_AUTHORIZATION".equals(status) || "AUTHORIZED".equals(status)) {
+            status = "PROCESSING";
+        }
+
+        return TransactionDto.builder()
+                .id(bt.getId())
+                .referenceNumber(bt.getReferenceNumber())
+                .transactionType("BLIK")
+                .status(status)
+                .senderIban(account.getIban())
+                .senderName(account.getCustomer().getFirstName() + " " + account.getCustomer().getLastName())
+                .receiverIban(null)
+                .receiverName(bt.getMerchantName() != null ? bt.getMerchantName() : "Płatność BLIK")
+                .amount(bt.getAmount())
+                .currency(bt.getCurrency())
+                .title("Płatność BLIK – " + (bt.getMerchantName() != null ? bt.getMerchantName() : "Sklep"))
+                .requestedAt(bt.getReceivedAt())
+                .completedAt(bt.getCompletedAt())
                 .build();
     }
 
@@ -606,5 +686,104 @@ public class TransferService {
             log.error("Błąd podczas przetwarzania przychodzącego webhooka SWIFT: {}", e.getMessage(), e);
             throw new RuntimeException("Nie udało się przetworzyć komunikatu SWIFT", e);
         }
+    }
+
+    public void processExternalRouting(Transaction transaction) {
+        Account senderAccount = accountRepository.findById(transaction.getSenderAccount().getId())
+                .orElseThrow(() -> new RuntimeException("Konto nie istnieje"));
+        
+        // Zdejmujemy w końcu kwotę z Salda głównego (dostępne saldo zostało już zablokowane wcześniej)
+        BigDecimal fee = getFee(transaction.getTransactionType());
+        BigDecimal totalAmount = transaction.getAmount().add(fee);
+        senderAccount.setBalance(senderAccount.getBalance().subtract(totalAmount));
+        accountRepository.save(senderAccount);
+
+        TransferRequest dummyRequest = new TransferRequest();
+        dummyRequest.setReceiverIban(transaction.getReceiverIban());
+        dummyRequest.setReceiverName(transaction.getReceiverName());
+        dummyRequest.setReceiverBic(transaction.getReceiverBic());
+        dummyRequest.setAmount(transaction.getAmount());
+        dummyRequest.setTitle(transaction.getTitle());
+        dummyRequest.setTransferType(transaction.getTransactionType());
+
+        if ("INTERNAL".equals(transaction.getTransactionType())) {
+            accountRepository.findByIban(transaction.getReceiverIban()).ifPresent(receiverAccount -> {
+                receiverAccount.setBalance(receiverAccount.getBalance().add(transaction.getAmount()));
+                receiverAccount.setAvailableBalance(receiverAccount.getAvailableBalance().add(transaction.getAmount()));
+                accountRepository.save(receiverAccount);
+            });
+            transaction.setStatus("COMPLETED");
+            transaction.setCompletedAt(OffsetDateTime.now());
+            transactionRepository.save(transaction);
+        } else if ("SEPA_SCT".equals(transaction.getTransactionType())) {
+            transaction.setStatus("PROCESSING");
+            transactionRepository.save(transaction);
+            
+            org.springframework.scheduling.annotation.AsyncResult.forValue(null)
+                .completable()
+                .thenRun(() -> {
+                    try {
+                        String xml = pain001Generator.generate(dummyRequest, senderAccount);
+                        sepaBatchClient.submitTransferXml(xml);
+                    } catch (Exception e) {
+                        log.error("Błąd wysyłki po odblokowaniu AML do SEPA Batch", e);
+                    }
+                });
+        } else if ("SEPA_INSTANT".equals(transaction.getTransactionType())) {
+            try {
+                String xml = pain001Generator.generate(dummyRequest, senderAccount);
+                sepaInstantClient.submitInstantTransferXml(xml);
+                transaction.setStatus("COMPLETED");
+                transaction.setCompletedAt(OffsetDateTime.now());
+                transactionRepository.save(transaction);
+            } catch (Exception e) {
+                log.error("Błąd wysyłki po odblokowaniu AML do SEPA Instant", e);
+            }
+        } else if ("SWIFT".equals(transaction.getTransactionType())) {
+            try {
+                String xml = swiftXmlGenerator.generate(dummyRequest, senderAccount);
+                com.bankeurob.integration.swift.dto.SwiftMessageResponse swiftResponse = swiftClient.submitSwiftMessage(xml);
+                transaction.setExternalMessageId(swiftResponse.getUetr());
+                transaction.setStatus("PROCESSING");
+                transactionRepository.save(transaction);
+            } catch (Exception e) {
+                log.error("Błąd wysyłki po odblokowaniu AML do SWIFT", e);
+            }
+        } else if ("RTGS_TARGET2".equals(transaction.getTransactionType())) {
+            transaction.setStatus("PROCESSING");
+            transactionRepository.save(transaction);
+            
+            try {
+                com.bankeurob.integration.target.dto.SettlementRequest req = new com.bankeurob.integration.target.dto.SettlementRequest(
+                    transaction.getId().toString(),
+                    senderAccount.getBic(),
+                    transaction.getReceiverBic(),
+                    senderAccount.getIban(),
+                    transaction.getReceiverIban(),
+                    transaction.getAmount(),
+                    transaction.getCurrency(),
+                    transaction.getTitle(),
+                    "customer"
+                );
+                targetClient.settlePayment(req);
+            } catch (Exception e) {
+                log.error("Błąd wysyłki po odblokowaniu AML do TARGET2", e);
+            }
+        } else {
+            transaction.setStatus("COMPLETED");
+            transaction.setCompletedAt(OffsetDateTime.now());
+            transactionRepository.save(transaction);
+        }
+    }
+
+    public void refundTransaction(Transaction transaction) {
+        Account senderAccount = accountRepository.findById(transaction.getSenderAccount().getId())
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono konta nadawcy"));
+        
+        BigDecimal fee = getFee(transaction.getTransactionType());
+        BigDecimal totalAmount = transaction.getAmount().add(fee);
+        
+        senderAccount.setAvailableBalance(senderAccount.getAvailableBalance().add(totalAmount));
+        accountRepository.save(senderAccount);
     }
 }

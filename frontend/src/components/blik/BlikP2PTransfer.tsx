@@ -57,6 +57,7 @@ export const BlikP2PTransfer: React.FC<BlikP2PTransferProps> = ({ accounts }) =>
         transferType: 'SEPA_INSTANT',
         senderIban: accounts[0].iban,
         receiverIban: targetIban,
+        receiverBic: lookupRes.data.bank_code,
         receiverName: receiverName,
         title: title,
         amount: Number(amount),

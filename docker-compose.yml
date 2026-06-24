@@ -107,7 +107,7 @@ services:
       INTEGRATION_SEPA_BATCH_BASEURL: http://sepa-batch-service:8002
       INTEGRATION_SEPA_INSTANT_BASEURL: http://sepa-instant-service:8003
       INTEGRATION_SWIFT_BASEURL: http://swift-app:3000
-      INTEGRATION_CARDS_GATEWAY_BASEURL: http://cards-gateway-app:8000
+      INTEGRATION_CARDS_GATEWAY_BASEURL: http://payment-gateway:8000
       INTEGRATION_KLIK_BASEURL: http://klik-web:8000
     ports:
       - "${BACKEND_PORT}:9876"
